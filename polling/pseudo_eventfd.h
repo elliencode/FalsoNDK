@@ -6,7 +6,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <sys/unistd.h>
-#include "AFakeNative/PseudoEpoll.h"
+#include "../PseudoEpoll.h"
 
 #ifdef __cplusplus
 extern "C" {

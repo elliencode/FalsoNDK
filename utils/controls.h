@@ -7,15 +7,15 @@
  * of the MIT license. See the LICENSE file for details.
  */
 
-#ifndef AFAKENATIVE_CONTROLS_H
-#define AFAKENATIVE_CONTROLS_H
+#ifndef FALSONDK_CONTROLS_H
+#define FALSONDK_CONTROLS_H
 
 #include <psp2/touch.h>
 #include <psp2/ctrl.h>
 #include <psp2/motion.h>
 
 #include <math.h>
-#include "AFakeNative/AInput.h"
+#include "../android/AInput.h"
 
 #define GRAVITY_CONSTANT 9.807f
 
@@ -46,4 +46,4 @@ void pollPad();
 void pollAccel();
 void runSilentStartHelper();
 
-#endif // AFAKENATIVE
+#endif // FALSONDK_CONTROLS_H

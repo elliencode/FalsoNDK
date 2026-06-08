@@ -9,14 +9,13 @@
 
 #include "controls.h"
 
-#include <falso_jni/FalsoJNI.h>
 #include <psp2/kernel/threadmgr.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <cstring>
 #include <psp2/kernel/clib.h>
 #include "../keycodes.h"
-#include "../AInput.h"
+#include "../android/AInput.h"
 
 extern "C" {
     float L_INNER_DEADZONE __attribute__((weak)) = 0.20f;
@@ -37,11 +36,13 @@ extern "C" {
 #define TOUCHPAD_RX_BASE 852
 #define TOUCHPAD_RY_BASE 438
 
+#define BACK_TOUCH_MARGIN 100
+
 #define LSTICK_PTR_ID 88
 #define RSTICK_PTR_ID 89
 
-
 AInputQueue * inputQueue;
+SceTouchPanelInfo panelInfoBack;
 
 float lerp(float x1, float y1, float x3, float y3, float x2) {
     return ((x2-x1)*(y3-y1) / (x3-x1)) + y1;
@@ -59,6 +60,9 @@ void controls_init(AInputQueue * queue) {
     // Enable analog sticks and touchscreen
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
+    sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_START);
+
+    sceTouchGetPanelInfo(SCE_TOUCH_PORT_BACK, &panelInfoBack);
 
     inputQueue = queue;
 
@@ -234,16 +238,18 @@ void pollTouch() {
 }
 
 static ButtonMapping mapping[] = {
-        { SCE_CTRL_UP,        AKEYCODE_DPAD_UP },
-        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_DOWN },
-        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_LEFT },
-        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_RIGHT },
+        { SCE_CTRL_UP,        AKEYCODE_DPAD_LEFT },
+        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_RIGHT },
+        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_UP },
+        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_DOWN},
         { SCE_CTRL_CROSS,     AKEYCODE_BUTTON_A },
         { SCE_CTRL_CIRCLE,    AKEYCODE_BUTTON_B },
         { SCE_CTRL_SQUARE,    AKEYCODE_BUTTON_X },
         { SCE_CTRL_TRIANGLE,  AKEYCODE_BUTTON_Y },
         { SCE_CTRL_L1,        AKEYCODE_BUTTON_L1 },
         { SCE_CTRL_R1,        AKEYCODE_BUTTON_R1 },
+        { SCE_CTRL_L2,        AKEYCODE_BUTTON_L2 },
+        { SCE_CTRL_R2,        AKEYCODE_BUTTON_R2 },
         { SCE_CTRL_START,     AKEYCODE_BUTTON_START },
         { SCE_CTRL_SELECT,    AKEYCODE_BUTTON_SELECT },
 };
@@ -292,6 +298,22 @@ void pollPad() {
 
     old_buttons = current_buttons;
     current_buttons = pad.buttons;
+
+    if (!(current_buttons & SCE_CTRL_L2  || current_buttons & SCE_CTRL_R2)) {
+        SceTouchData t;
+        sceTouchPeek(SCE_TOUCH_PORT_BACK, &t, 1);
+
+        for (int i = 0; i < t.reportNum; i++) {
+            if (t.report[i].y < (panelInfoBack.minAaY + panelInfoBack.maxAaY) / 2) {
+                if (t.report[i].x < (panelInfoBack.minAaX + panelInfoBack.maxAaX) / 2) {
+                    if (t.report[i].x >= BACK_TOUCH_MARGIN) current_buttons |= SCE_CTRL_L2;
+                } else {
+                    if (t.report[i].x < (panelInfoBack.maxAaX - BACK_TOUCH_MARGIN)) current_buttons |= SCE_CTRL_R2;
+                }
+            }
+        }
+    }
+
     pressed_buttons = current_buttons & ~old_buttons;
     released_buttons = ~current_buttons & old_buttons;
 
@@ -336,6 +358,6 @@ void pollPad() {
                  ry,
                  0,
                  0,
-                 current_buttons & SCE_CTRL_L1,
-                 current_buttons & SCE_CTRL_R1);
+                 current_buttons & SCE_CTRL_L2,
+                 current_buttons & SCE_CTRL_R2);
 }

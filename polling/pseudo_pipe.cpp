@@ -1,7 +1,7 @@
 #include <psp2/kernel/threadmgr.h>
 #include <cerrno>
 #include "pseudo_pipe.h"
-#include "AFakeNative/AFakeNative_Utils.h"
+#include "FalsoNDK_Utils.h"
 
 #define PIPEFD_MARGIN 384
 #define PIPEFD_MAX 64

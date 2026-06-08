@@ -1,5 +1,5 @@
-#ifndef AFAKENATIVE_UTILS_H
-#define AFAKENATIVE_UTILS_H
+#ifndef FALSONDK_UTILS_H
+#define FALSONDK_UTILS_H
 
 #include <cstdint>
 
@@ -24,4 +24,4 @@ void ALOGE(const char * fmt, ...);
 void ALOGW(const char * fmt, ...);
 void ALOGD(const char * fmt, ...);
 
-#endif // AFAKENATIVE_UTILS_H
+#endif // FALSONDK_UTILS_H

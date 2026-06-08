@@ -4,8 +4,8 @@
 #include <cerrno>
 #include <cstdio>
 #include <sys/unistd.h>
-#include "AFakeNative/AFakeNative_Utils.h"
-#include "AFakeNative/PseudoEpoll.h"
+#include "FalsoNDK_Utils.h"
+#include "../PseudoEpoll.h"
 
 #include "pseudo_eventfd.h"
 

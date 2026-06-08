@@ -8,9 +8,9 @@
 #include <unordered_map>
 #include <sys/unistd.h>
 
-#include "AFakeNative_Utils.h"
+#include "FalsoNDK_Utils.h"
 #include "PseudoEpoll.h"
-#include "AFakeNative/polling/pseudo_eventfd.h"
+#include "polling/pseudo_eventfd.h"
 
 // Maximum number of file descriptors for which to retrieve poll events each iteration.
 static const int EPOLL_MAX_EVENTS = 16;

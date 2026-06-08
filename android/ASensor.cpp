@@ -6,10 +6,10 @@
 #include <algorithm>
 
 #include "ASensor.h"
-#include "AFakeNative_Utils.h"
-#include "AFakeNative/utils/sensors.h"
+#include "FalsoNDK_Utils.h"
+#include "utils/sensors.h"
 #include "PseudoEpoll.h"
-#include "AFakeNative/polling/pseudo_eventfd.h"
+#include "polling/pseudo_eventfd.h"
 
 static ASensorManager * g_ASensorManager = nullptr;
 static ASensorEventQueue * g_ASensorEventQueue = nullptr;

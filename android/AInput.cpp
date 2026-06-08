@@ -1,8 +1,8 @@
 #include "AInput.h"
 #include "PseudoEpoll.h"
-#include "AFakeNative_Utils.h"
-#include "AFakeNative/utils/controls.h"
-#include "AFakeNative/polling/pseudo_eventfd.h"
+#include "FalsoNDK_Utils.h"
+#include "utils/controls.h"
+#include "polling/pseudo_eventfd.h"
 
 #include <vector>
 #include <pthread.h>
@@ -13,14 +13,8 @@ static AInputQueue * g_AInputQueue = nullptr;
 typedef struct inputQueue {
     int mDispatchFd;
     std::vector<ALooper*> mAppLoopers;
-    //ALooper * mDispatchLooper;
-    //sp<WeakMessageHandler> mHandler;
-    //PooledInputEventFactory mPooledInputEventFactory;
-    // Guards the pending and finished event vectors
     pthread_mutex_t mLock;
     std::vector<AInputEvent*> mPendingEvents;
-    //std::vector<key_value_pair_t<AInputEvent*, bool> > mFinishedEvents;
-
 } inputQueue;
 
 AInputQueue * AInputQueue_create() {
@@ -75,6 +69,16 @@ void AInputQueue_detachLooper(AInputQueue* queue) {
     }
     q->mAppLoopers.clear();
     pthread_mutex_unlock(&q->mLock);
+}
+
+int32_t AInputQueue_hasEvents(AInputQueue* queue) {
+    if (!queue) {
+        ALOGE("AInputQueue_hasEvents: bad queue");
+        return -1;
+    }
+
+    const auto * q = reinterpret_cast<inputQueue *>(queue);
+    return q->mPendingEvents.empty() ? 0 : 1;
 }
 
 int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
@@ -152,6 +156,12 @@ int32_t AInputEvent_getType(const AInputEvent* event) {
     if (!event) return -1;
     auto * e = reinterpret_cast<const inputEvent *>(event);
     return e->type;
+}
+
+int32_t AInputEvent_getDeviceId(const AInputEvent* event) {
+    if (!event) return -1;
+    auto * e = reinterpret_cast<const inputEvent *>(event);
+    return e->source; // in our case that's fine, hopefully. unless there are external pads connected?
 }
 
 int32_t AInputEvent_getSource(const AInputEvent* event) {
@@ -234,14 +244,14 @@ int32_t axis, size_t pointer_index) {
             return e->motion_hat_x[pointer_index];
         case AMOTION_EVENT_AXIS_HAT_Y:
             return e->motion_hat_y[pointer_index];
+        case AMOTION_EVENT_AXIS_BRAKE:
         case AMOTION_EVENT_AXIS_LTRIGGER:
             return e->motion_lt[pointer_index];
+        case AMOTION_EVENT_AXIS_GAS:
         case AMOTION_EVENT_AXIS_RTRIGGER:
             return e->motion_rt[pointer_index];
         case AMOTION_EVENT_AXIS_RX:
         case AMOTION_EVENT_AXIS_RY:
-        case AMOTION_EVENT_AXIS_GAS:
-        case AMOTION_EVENT_AXIS_BRAKE:
             // These are often requested for joysticks but not applicable to the Vita
             return 0;
         default:
