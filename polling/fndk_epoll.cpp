@@ -19,31 +19,28 @@ typedef struct epollElement {
 
 typedef struct _epoll_fd_internal {
     int fd = -1; // >=0 indicates that it's in use
+    // `interest` is heap-allocated for a reason. Static std::map behaves weird on the Vita.
     std::map<int, epollElement> * interest = nullptr;
 } _epoll_fd_internal;
 
 static _epoll_fd_internal epoll_fd_pool[EPOLL_FD_MAX];
-static SceKernelLwMutexWork * _epoll_lock = nullptr;
+static SceKernelLwMutexWork _epoll_lock;
 
-
-void _check_init_lock() {
-    if (_epoll_lock == nullptr) {
-        _epoll_lock = (SceKernelLwMutexWork *) malloc(sizeof(SceKernelLwMutexWork));
-        sceKernelCreateLwMutex(_epoll_lock, "epoll_lock", 0, 0, NULL);
-
-        for (int i = 0; i < EPOLL_FD_MAX; ++i) {
-            epoll_fd_pool[i].fd = -1;
-        }
+__attribute__((constructor))
+static void _epoll_global_init() {
+    sceKernelCreateLwMutex(&_epoll_lock, "epoll_lock", 0, 0, NULL);
+    for (int i = 0; i < EPOLL_FD_MAX; ++i) {
+        epoll_fd_pool[i].fd = -1;
+        epoll_fd_pool[i].interest = nullptr;
     }
 }
 
 void _lock() {
-    _check_init_lock();
-    sceKernelLockLwMutex(_epoll_lock, 1, NULL);
+    sceKernelLockLwMutex(&_epoll_lock, 1, NULL);
 }
 
 void _unlock() {
-    if (_epoll_lock) sceKernelUnlockLwMutex(_epoll_lock, 1);
+    sceKernelUnlockLwMutex(&_epoll_lock, 1);
 }
 
 int fndk_epoll_create(int size) {
@@ -84,6 +81,28 @@ int fndk_epoll_create1(int flags) {
     return fd->fd;
 }
 
+//TODO: Call this from close()
+int fndk_epoll_close(int epfd) {
+    if (epfd < EPOLL_FD_MARGIN || epfd >= EPOLL_FD_MARGIN + EPOLL_FD_MAX) {
+        errno = EBADF;
+        return -1;
+    }
+
+    _lock();
+    _epoll_fd_internal * epoll = &epoll_fd_pool[epfd - EPOLL_FD_MARGIN];
+    if (epoll->fd != epfd) {
+        _unlock();
+        errno = EBADF;
+        return -1;
+    }
+
+    delete epoll->interest;
+    epoll->interest = nullptr;
+    epoll->fd = -1;
+    _unlock();
+    return 0;
+}
+
 #ifdef DEBUG_EPOLL
 const char * __op_to_str(int op) {
     switch (op) {
@@ -99,7 +118,7 @@ const char * __op_to_str(int op) {
 #endif
 
 int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event) {
-    if (epfd < EPOLL_FD_MARGIN || epfd > EPOLL_FD_MARGIN + EPOLL_FD_MAX || fd < 0) {
+    if (epfd < EPOLL_FD_MARGIN || epfd >= EPOLL_FD_MARGIN + EPOLL_FD_MAX || fd < 0) {
 #ifdef DEBUG_EPOLL
         ALOGD("fndk_epoll_ctl(epfd:%i, op:%s, fd:%i): EBADF: epfd or fd is not a valid file descriptor.", epfd, __op_to_str(op), fd);
 #endif
@@ -109,15 +128,9 @@ int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event) {
 
     _lock();
 
-    _epoll_fd_internal * epoll = nullptr;
-    for (int i = 0; i < EPOLL_FD_MAX; ++i) {
-        if (epoll_fd_pool[i].fd == epfd) {
-            epoll = &epoll_fd_pool[i];
-            break;
-        }
-    }
+    _epoll_fd_internal * epoll = &epoll_fd_pool[epfd - EPOLL_FD_MARGIN];
 
-    if (!epoll || fd == epfd) {
+    if (epoll->fd != epfd || fd == epfd) {
 #ifdef DEBUG_EPOLL
         ALOGD("fndk_epoll_ctl(epfd:%i, op:%s, fd:%i): EINVAL: epfd is not an epoll file descriptor, or fd is the same as epfd.", epfd, __op_to_str(op), fd);
 #endif
@@ -213,7 +226,7 @@ int fndk_epoll_wait(int epfd, struct fndk_epoll_event *events, int maxevents, in
 #endif
 
     // fd out of our defined bounds
-    if (epfd < EPOLL_FD_MARGIN || epfd > EPOLL_FD_MARGIN + EPOLL_FD_MAX) {
+    if (epfd < EPOLL_FD_MARGIN || epfd >= EPOLL_FD_MARGIN + EPOLL_FD_MAX) {
 #ifdef DEBUG_EPOLL
         ALOGD("fndk_epoll_wait: epoll fd out of bounds");
 #endif
@@ -233,15 +246,9 @@ int fndk_epoll_wait(int epfd, struct fndk_epoll_event *events, int maxevents, in
 
     _lock();
 
-    _epoll_fd_internal * fd = nullptr;
-    for (int i = 0; i < EPOLL_FD_MAX; ++i) {
-        if (epoll_fd_pool[i].fd == epfd) {
-            fd = &epoll_fd_pool[i];
-            break;
-        }
-    }
+    _epoll_fd_internal * fd = &epoll_fd_pool[epfd - EPOLL_FD_MARGIN];
 
-    if (!fd) {
+    if (fd->fd != epfd) {
 #ifdef DEBUG_EPOLL
         ALOGD("fndk_epoll_wait: epoll fd not found in pool");
 #endif
@@ -303,7 +310,7 @@ int fndk_epoll_wait(int epfd, struct fndk_epoll_event *events, int maxevents, in
         }
 
         _unlock();
-        usleep(10000); // give a chance for other threads to add new FDs to pool
+        usleep(4167); // give a chance for other threads to add new FDs to pool / 1/4 of a frame at 60fps
         _lock();
     }
 

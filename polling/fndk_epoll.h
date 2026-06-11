@@ -4,7 +4,6 @@
 #include <sys/fcntl.h>
 
 #define FNDK_EPOLL_CLOEXEC O_CLOEXEC
-#define FNDK_EPOLL_CLOEXEC O_CLOEXEC
 #define FNDK_EPOLL_CTL_ADD 1
 #define FNDK_EPOLL_CTL_DEL 2
 #define FNDK_EPOLL_CTL_MOD 3
@@ -54,11 +53,12 @@ int fndk_epoll_create(int size);
 
 int fndk_epoll_create1(int flags);
 
+int fndk_epoll_close(int epfd);
+
 int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event);
 
 ssize_t fndk_read(int fd, void *buf, size_t count);
 ssize_t fndk_write(int fd, const void *buf, size_t count);
-
 
 #ifdef __cplusplus
 };
