@@ -157,7 +157,7 @@ int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event) {
         return -1;
     }
 
-    if (op == FNDK_EPOLL_CTL_MOD && epoll->interest->at(epfd).e.events & FNDK_EPOLLEXCLUSIVE) {
+    if (op == FNDK_EPOLL_CTL_MOD && epoll->interest->at(fd).e.events & FNDK_EPOLLEXCLUSIVE) {
 #ifdef DEBUG_EPOLL
         ALOGD("fndk_epoll_ctl(epfd:%i, op:%s, fd:%i): EINVAL: op was EPOLL_CTL_MOD and the EPOLLEXCLUSIVE flag has previously been applied to this epfd, fd pair.", epfd, __op_to_str(op), fd);
 #endif
