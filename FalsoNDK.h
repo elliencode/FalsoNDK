@@ -7,5 +7,4 @@
 #include "android/ANativeWindow.h"
 #include "android/ASensor.h"
 #include "android/ANativeActivity.h"
-
-#include "native_app_glue.h"
+#include "android/native_app_glue.h"

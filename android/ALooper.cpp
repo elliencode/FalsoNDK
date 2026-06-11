@@ -9,8 +9,8 @@
 #include <sys/unistd.h>
 
 #include "FalsoNDK_Utils.h"
-#include "PseudoEpoll.h"
-#include "polling/pseudo_eventfd.h"
+#include "fndk_epoll.h"
+#include "polling/fndk_eventfd.h"
 
 // Maximum number of file descriptors for which to retrieve poll events each iteration.
 static const int EPOLL_MAX_EVENTS = 16;
@@ -31,8 +31,8 @@ struct Request {
 
     uint32_t getEpollEvents() const {
         uint32_t epollEvents = 0;
-        if (events & ALOOPER_EVENT_INPUT) epollEvents |= PSEUDO_EPOLLIN;
-        if (events & ALOOPER_EVENT_OUTPUT) epollEvents |= PSEUDO_EPOLLOUT;
+        if (events & ALOOPER_EVENT_INPUT) epollEvents |= FNDK_EPOLLIN;
+        if (events & ALOOPER_EVENT_OUTPUT) epollEvents |= FNDK_EPOLLOUT;
         return epollEvents;
     }
 };
@@ -150,7 +150,7 @@ ALooper* ALooper_prepare(int opts) {
     ial->mNextRequestSeq = WAKE_EVENT_FD_SEQ + 1;
     ial->mResponseIndex = 0;
     ial->mNextMessageUptime = LLONG_MAX;
-    ial->mWakeEventFd = pseudo_eventfd(0, PSEUDO_EFD_NONBLOCK | PSEUDO_EFD_CLOEXEC);
+    ial->mWakeEventFd = fndk_eventfd(0, FNDK_EFD_NONBLOCK | FNDK_EFD_CLOEXEC);
     ial->mSequenceNumberByFd = new std::unordered_map<int /*fd*/, SequenceNumber>;
     ial->mRequests = new std::unordered_map<SequenceNumber, Request>;
     ial->mResponses = new std::vector<Response>;
@@ -170,7 +170,7 @@ ALooper* ALooper_prepare(int opts) {
     return (ALooper *) ial;
 }
 
-pseudo_epoll_event createEpollEvent(uint32_t events, uint64_t seq) {
+fndk_epoll_event createEpollEvent(uint32_t events, uint64_t seq) {
     return {.events = events, .data = {.u64 = seq}};
 }
 
@@ -180,7 +180,7 @@ void wake(internal_ALooper * self) {
 #endif
 
     uint64_t inc = 1;
-    ssize_t nWrite = TEMP_FAILURE_RETRY(pseudo_write(self->mWakeEventFd, &inc, sizeof(uint64_t)));
+    ssize_t nWrite = TEMP_FAILURE_RETRY(fndk_write(self->mWakeEventFd, &inc, sizeof(uint64_t)));
     if (nWrite != sizeof(uint64_t)) {
         if (errno != EAGAIN) {
             LOG_ALWAYS_FATAL("Could not write wake signal to fd %d (returned %zd): %s",
@@ -196,7 +196,7 @@ void awoken(internal_ALooper * self) {
 #endif
 
     uint64_t counter;
-    TEMP_FAILURE_RETRY(pseudo_read(self->mWakeEventFd, &counter, sizeof(uint64_t)));
+    TEMP_FAILURE_RETRY(fndk_read(self->mWakeEventFd, &counter, sizeof(uint64_t)));
 }
 
 void scheduleEpollRebuildLocked(internal_ALooper * self) {
@@ -225,7 +225,7 @@ int removeSequenceNumberLocked(internal_ALooper * self, SequenceNumber seq) {
     self->mRequests->erase(request_it);
     self->mSequenceNumberByFd->erase(self->mSequenceNumberByFd->find(fd));
 
-    int epollResult = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_DEL, fd, nullptr);
+    int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_DEL, fd, nullptr);
     if (epollResult < 0) {
         if (errno == EBADF || errno == ENOENT) {
             // Tolerate EBADF or ENOENT because it means that the file descriptor was closed
@@ -267,18 +267,18 @@ void rebuildEpollLocked(internal_ALooper * self) {
     }
 
     // Allocate the new epoll instance and register the WakeEventFd.
-    self->mEpollFd = pseudo_epoll_create1(PSEUDO_EPOLL_CLOEXEC);
+    self->mEpollFd = fndk_epoll_create1(FNDK_EPOLL_CLOEXEC);
     LOG_ALWAYS_FATAL_IF(self->mEpollFd < 0, "Could not create epoll instance: %s", strerror(errno));
 
-    pseudo_epoll_event wakeEvent = createEpollEvent(PSEUDO_EPOLLIN, WAKE_EVENT_FD_SEQ);
-    int result = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_ADD, self->mWakeEventFd, &wakeEvent);
+    fndk_epoll_event wakeEvent = createEpollEvent(FNDK_EPOLLIN, WAKE_EVENT_FD_SEQ);
+    int result = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, self->mWakeEventFd, &wakeEvent);
     LOG_ALWAYS_FATAL_IF(result != 0, "Could not add wake event fd to epoll instance: %s",
                         strerror(errno));
 
     for (const auto& [seq, request] : * self->mRequests) {
-        pseudo_epoll_event eventItem = createEpollEvent(request.getEpollEvents(), seq);
+        fndk_epoll_event eventItem = createEpollEvent(request.getEpollEvents(), seq);
 
-        int epollResult = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_ADD, request.fd, &eventItem);
+        int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, request.fd, &eventItem);
         if (epollResult < 0) {
             printf("Error adding epoll events for fd %d while rebuilding epoll set: %s\n",
                   request.fd, strerror(errno));
@@ -323,11 +323,11 @@ int pollInner (int timeoutMillis) {
     // We are about to idle.
     self->mPolling = true;
 
-    struct pseudo_epoll_event eventItems[EPOLL_MAX_EVENTS];
-    int eventCount = pseudo_epoll_wait(self->mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
+    struct fndk_epoll_event eventItems[EPOLL_MAX_EVENTS];
+    int eventCount = fndk_epoll_wait(self->mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
 
 #ifdef DEBUG_POLL_AND_WAKE
-    ALOGD("ALooper (%p) ~ pollOnce - pseudo_epoll_wait returned with ret %i",
+    ALOGD("ALooper (%p) ~ pollOnce - fndk_epoll_wait returned with ret %i",
           self, eventCount);
 #endif
 
@@ -372,7 +372,7 @@ int pollInner (int timeoutMillis) {
         const SequenceNumber seq = eventItems[i].data.u64;
         uint32_t epollEvents = eventItems[i].events;
         if (seq == WAKE_EVENT_FD_SEQ) {
-            if (epollEvents & PSEUDO_EPOLLIN) {
+            if (epollEvents & FNDK_EPOLLIN) {
                 awoken(self);
             } else {
                 printf("Ignoring unexpected epoll events 0x%x on wake event fd.", epollEvents);
@@ -382,10 +382,10 @@ int pollInner (int timeoutMillis) {
             if (request_it != self->mRequests->end()) {
                 const auto& request = request_it->second;
                 int events = 0;
-                if (epollEvents & PSEUDO_EPOLLIN) events |= ALOOPER_EVENT_INPUT;
-                if (epollEvents & PSEUDO_EPOLLOUT) events |= ALOOPER_EVENT_OUTPUT;
-                if (epollEvents & PSEUDO_EPOLLERR) events |= ALOOPER_EVENT_ERROR;
-                if (epollEvents & PSEUDO_EPOLLHUP) events |= ALOOPER_EVENT_HANGUP;
+                if (epollEvents & FNDK_EPOLLIN) events |= ALOOPER_EVENT_INPUT;
+                if (epollEvents & FNDK_EPOLLOUT) events |= ALOOPER_EVENT_OUTPUT;
+                if (epollEvents & FNDK_EPOLLERR) events |= ALOOPER_EVENT_ERROR;
+                if (epollEvents & FNDK_EPOLLHUP) events |= ALOOPER_EVENT_HANGUP;
                 Response r = {.seq = seq, .events = events, .request = request};
                 self->mResponses->emplace_back(r);
             } else {
@@ -579,10 +579,10 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
     request.events = events;
     request.callback = callback;
     request.data = data;
-    pseudo_epoll_event eventItem = createEpollEvent(request.getEpollEvents(), seq);
+    fndk_epoll_event eventItem = createEpollEvent(request.getEpollEvents(), seq);
     auto seq_it = self->mSequenceNumberByFd->find(fd);
     if (seq_it == self->mSequenceNumberByFd->end()) {
-        int epollResult = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_ADD, fd, &eventItem);
+        int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, fd, &eventItem);
         if (epollResult < 0) {
             ALOGE("Error adding epoll events for fd %d: %s", fd, strerror(errno));
             pthread_mutex_unlock(&self->mLock);
@@ -591,7 +591,7 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
         self->mRequests->emplace(seq, request);
         self->mSequenceNumberByFd->emplace(std::make_pair(fd, seq));
     } else {
-        int epollResult = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_MOD, fd, &eventItem);
+        int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_MOD, fd, &eventItem);
         if (epollResult < 0) {
             if (errno == ENOENT) {
                 // Tolerate ENOENT because it means that an older file descriptor was
@@ -612,7 +612,7 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
                         "being recycled, falling back on EPOLL_CTL_ADD: %s",
                         self, strerror(errno));
 #endif
-                epollResult = pseudo_epoll_ctl(self->mEpollFd, PSEUDO_EPOLL_CTL_ADD, fd, &eventItem);
+                epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, fd, &eventItem);
                 if (epollResult < 0) {
                     ALOGE("Error modifying or adding epoll events for fd %d: %s",
                           fd, strerror(errno));

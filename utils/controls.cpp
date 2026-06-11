@@ -20,26 +20,12 @@
 extern "C" {
     float L_INNER_DEADZONE __attribute__((weak)) = 0.20f;
     float R_INNER_DEADZONE __attribute__((weak)) = 0.20f;
-
-    int AInput_enableLeftStick __attribute__((weak)) = 1;
-    int AInput_enableRightStick __attribute__((weak)) = 1;
 }
 
 #define L_OUTER_DEADZONE 0.99f
 #define R_OUTER_DEADZONE 0.99f
 
-#define TOUCHPAD_X_RADIUS 98
-#define TOUCHPAD_Y_RADIUS 98
-
-#define TOUCHPAD_LX_BASE 104
-#define TOUCHPAD_LY_BASE 438
-#define TOUCHPAD_RX_BASE 852
-#define TOUCHPAD_RY_BASE 438
-
 #define BACK_TOUCH_MARGIN 100
-
-#define LSTICK_PTR_ID 88
-#define RSTICK_PTR_ID 89
 
 AInputQueue * inputQueue;
 SceTouchPanelInfo panelInfoBack;
@@ -352,12 +338,5 @@ void pollPad() {
     stickInputEvent.motion_action = AMOTION_EVENT_ACTION_MOVE;
     stickInputEvent.type = AINPUT_EVENT_TYPE_MOTION;
 
-    sendJoyEvent(lx,
-                 ly,
-                 rx,
-                 ry,
-                 0,
-                 0,
-                 current_buttons & SCE_CTRL_L2,
-                 current_buttons & SCE_CTRL_R2);
+    sendJoyEvent(lx, ly, rx, ry, 0, 0, current_buttons & SCE_CTRL_L2, current_buttons & SCE_CTRL_R2);
 }

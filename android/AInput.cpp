@@ -1,8 +1,8 @@
 #include "AInput.h"
-#include "PseudoEpoll.h"
+#include "fndk_epoll.h"
 #include "FalsoNDK_Utils.h"
 #include "utils/controls.h"
-#include "polling/pseudo_eventfd.h"
+#include "polling/fndk_eventfd.h"
 
 #include <vector>
 #include <pthread.h>
@@ -21,7 +21,7 @@ AInputQueue * AInputQueue_create() {
     if (g_AInputQueue) return g_AInputQueue;
 
     auto * iq = new inputQueue();
-    iq->mDispatchFd = pseudo_eventfd(0, PSEUDO_EFD_NONBLOCK | PSEUDO_EFD_SEMAPHORE);
+    iq->mDispatchFd = fndk_eventfd(0, FNDK_EFD_NONBLOCK | FNDK_EFD_SEMAPHORE);
 
     if (iq->mDispatchFd < 0) {
         ALOGE("eventfd creation for AInputQueue failed: %s\n", strerror(errno));
@@ -105,7 +105,7 @@ int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
         uint64_t byteread;
         ssize_t nRead;
         do {
-            nRead = pseudo_read(q->mDispatchFd, &byteread, sizeof(byteread));
+            nRead = fndk_read(q->mDispatchFd, &byteread, sizeof(byteread));
             if (nRead < 0 && errno != EAGAIN) {
                 ALOGW("Failed to read from native dispatch pipe: %s", strerror(errno));
             }
@@ -134,7 +134,7 @@ void AInputQueue_enqueueEvent(AInputQueue* queue, AInputEvent* event) {
     q->mPendingEvents.push_back(event);
     if (q->mPendingEvents.size() == 1) {
         uint64_t payload = 1;
-        int res = TEMP_FAILURE_RETRY(pseudo_write(q->mDispatchFd, &payload, sizeof(payload)));
+        int res = TEMP_FAILURE_RETRY(fndk_write(q->mDispatchFd, &payload, sizeof(payload)));
         if (res < 0 && errno != EAGAIN) {
             ALOGW("Failed writing to dispatch fd: %s", strerror(errno));
         }

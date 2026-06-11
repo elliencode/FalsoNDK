@@ -346,11 +346,6 @@ enum {
  */
 void ANativeActivity_hideSoftInput(ANativeActivity* activity, uint32_t flags);
 
-/**
- * [Non-Standard]: Create new ANativeActivity object
- */
-ANativeActivity * ANativeActivity_create();
-
 #ifdef __cplusplus
 };
 #endif

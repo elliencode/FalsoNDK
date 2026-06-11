@@ -8,8 +8,8 @@
 #include "ASensor.h"
 #include "FalsoNDK_Utils.h"
 #include "utils/sensors.h"
-#include "PseudoEpoll.h"
-#include "polling/pseudo_eventfd.h"
+#include "fndk_epoll.h"
+#include "polling/fndk_eventfd.h"
 
 static ASensorManager * g_ASensorManager = nullptr;
 static ASensorEventQueue * g_ASensorEventQueue = nullptr;
@@ -199,7 +199,7 @@ ASensorEventQueue* ASensorManager_createEventQueue(ASensorManager* manager,
 
     if (!g_ASensorEventQueue) {
         sensorEventQueue seq;
-        seq.mDispatchFd = pseudo_eventfd(0, PSEUDO_EFD_NONBLOCK | PSEUDO_EFD_SEMAPHORE);
+        seq.mDispatchFd = fndk_eventfd(0, FNDK_EFD_NONBLOCK | FNDK_EFD_SEMAPHORE);
         seq.mAppLoopers = new std::vector<ALooper *>;
         seq.mPendingEvents = new std::vector<ASensorEvent>;
         seq.mSensors = new std::vector<ASensor *>;
@@ -285,7 +285,7 @@ ssize_t ASensorEventQueue_getEvents(ASensorEventQueue* queue, ASensorEvent* even
         uint64_t byteread;
         ssize_t nRead;
         do {
-            nRead = pseudo_read(q->mDispatchFd, &byteread, sizeof(byteread));
+            nRead = fndk_read(q->mDispatchFd, &byteread, sizeof(byteread));
             if (nRead < 0 && errno != EAGAIN) {
                 ALOGW("Failed to read from native dispatch pipe: %s", strerror(errno));
             }
@@ -305,7 +305,7 @@ void ASensorEventQueue_enqueueEvent(ASensorEventQueue * queue, ASensorEvent * ev
     q->mPendingEvents->push_back(*event);
     if (q->mPendingEvents->size() == 1) {
         uint64_t payload = 1;
-        int res = TEMP_FAILURE_RETRY(pseudo_write(q->mDispatchFd, &payload, sizeof(payload)));
+        int res = TEMP_FAILURE_RETRY(fndk_write(q->mDispatchFd, &payload, sizeof(payload)));
         if (res < 0 && errno != EAGAIN) {
             ALOGW("Failed writing to dispatch fd: %s", strerror(errno));
         }
