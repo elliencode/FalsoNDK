@@ -1,14 +1,11 @@
-#include "fndk_epoll.h"
-#include "FalsoNDK_Utils.h"
-#include <pthread.h>
+#include "polling/fndk_epoll.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <map>
-#include <sys/unistd.h>
-#include <cstdio>
 #include <psp2/kernel/threadmgr.h>
-#include <psp2/kernel/clib.h>
 
+#include "FalsoNDK_Utils.h"
 #include "polling/fndk_eventfd.h"
 #include "polling/fndk_pipe.h"
 
@@ -109,6 +106,8 @@ int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event) {
         errno = EBADF;
         return -1;
     }
+
+    _lock();
 
     _epoll_fd_internal * epoll = nullptr;
     for (int i = 0; i < EPOLL_FD_MAX; ++i) {
