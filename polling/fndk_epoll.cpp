@@ -197,7 +197,7 @@ int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event) {
         epollElement ele;
         ele.e = *event;
         ele.fd = fd;
-        epoll->interest->emplace(fd, ele);
+        epoll->interest->insert_or_assign(fd, ele);
         _unlock();
         return 0;
     }
