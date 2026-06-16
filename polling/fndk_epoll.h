@@ -48,10 +48,9 @@ int fndk_epoll_create1(int flags);
 
 int fndk_epoll_close(int epfd);
 
-int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event);
+bool is_epoll(int fd);
 
-ssize_t fndk_read(int fd, void *buf, size_t count);
-ssize_t fndk_write(int fd, const void *buf, size_t count);
+int fndk_epoll_ctl(int epfd, int op, int fd, struct fndk_epoll_event *event);
 
 #ifdef __cplusplus
 };

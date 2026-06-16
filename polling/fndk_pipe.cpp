@@ -193,6 +193,34 @@ void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable) {
     sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
 }
 
+int fndk_pipe_close(int fd) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int idx = (fd - PIPEFD_MARGIN) / 2;
+
+    sceKernelLockLwMutex(&pipefd_pool_mutex, 1, nullptr);
+
+    pipefd_internal * pipe = &pipefd_pool[idx];
+    if (pipe->readfd != fd && pipe->writefd != fd) {
+        sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+        errno = EBADF;
+        return -1;
+    }
+
+    sceKernelDeleteMsgPipe(pipe->msgpipe);
+    pipe->readfd = -1;
+    pipe->writefd = -1;
+    pipe->msgpipe = -1;
+    pipe->readable = false;
+    pipe->writeable = false;
+
+    sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+    return 0;
+}
+
 bool is_pipe(int fd) {
 #ifdef FNDK_SAFER_SLOWER
     pipefd_internal * p = nullptr;

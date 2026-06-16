@@ -83,7 +83,10 @@ int fndk_epoll_create1(int flags) {
     return fd->fd;
 }
 
-//TODO: Call this from close()
+bool is_epoll(int fd) {
+    return (fd >= EPOLL_FD_MARGIN) && (fd < (EPOLL_FD_MARGIN + EPOLL_FD_MAX));
+}
+
 int fndk_epoll_close(int epfd) {
     if (epfd < EPOLL_FD_MARGIN || epfd >= EPOLL_FD_MARGIN + EPOLL_FD_MAX) {
         errno = EBADF;
@@ -321,24 +324,3 @@ done:
     return eventsReported;
 }
 
-ssize_t fndk_read(int fd, void *buf, size_t count) {
-    if (is_eventfd(fd)) {
-        return fndk_eventfd_read(fd, buf, count);
-    } else if (is_pipe(fd)) {
-        return fndk_pipe_read(fd, buf, count);
-    } else {
-        // not eventfd or pipe, fallback to normal read
-        return read(fd, buf, count);
-    }
-}
-
-ssize_t fndk_write(int fd, const void *buf, size_t count) {
-    if (is_eventfd(fd)) {
-        return fndk_eventfd_write(fd, buf, count);
-    } else if (is_pipe(fd)) {
-        return fndk_pipe_write(fd, buf, count);
-    } else {
-        // not eventfd or pipe, fallback to normal write
-        return write(fd, buf, count);
-    }
-}
