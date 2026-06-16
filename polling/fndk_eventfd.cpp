@@ -46,7 +46,7 @@ int fndk_eventfd(unsigned int initval, int flags) {
     fd->flags = flags;
 
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
-#ifdef DEBUG_POLL_AND_WAKE
+#ifdef DEBUG_EVENTFD
     ALOGD("Created eventfd #%i from addr %p", fd->fd, __builtin_return_address(0));
 #endif
     return fd->fd;
@@ -184,9 +184,18 @@ void fndk_eventfd_status(int fd, bool * is_readable, bool * is_writeable) {
         if (eventfd_pool[u].fd == fd) {
             *is_readable = eventfd_pool[u].value > 0;
             *is_writeable = eventfd_pool[u].value < 0xfffffffffffffffe;
-            break;
+
+            sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+            return;
         }
     }
+
+#ifdef DEBUG_EVENTFD
+    ALOGD("Requested eventfd_status for an unexpeced fd %d!\n", fd);
+#endif
+
+    *is_readable = false;
+    *is_writeable = false;
 
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
 }
