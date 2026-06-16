@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 int fndk_eventfd(unsigned int initval, int flags);
+int fndk_eventfd_close(int fd);
 
 bool is_eventfd(int fd);
 ssize_t fndk_eventfd_read(int fd, void *buf, size_t count);

@@ -52,6 +52,30 @@ int fndk_eventfd(unsigned int initval, int flags) {
     return fd->fd;
 }
 
+//TODO: Call this from close()
+int fndk_eventfd_close(int fd) {
+    int idx = fd - EVENTFD_MARGIN;
+    if (idx < 0 || idx >= EVENTFD_MAX) {
+        errno = EBADF;
+        return -1;
+    }
+
+    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
+
+    if (eventfd_pool[idx].fd != fd) {
+        sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+        errno = EBADF;
+        return -1;
+    }
+
+    eventfd_pool[idx].fd = -1;
+    eventfd_pool[idx].value = 0;
+    eventfd_pool[idx].flags = 0;
+
+    sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+    return 0;
+}
+
 bool is_eventfd(int fd) {
 #ifdef FNDK_SAFER_SLOWER
     eventfd_internal * p = nullptr;
@@ -105,9 +129,14 @@ ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
         } else {
             for (;;) {
                 sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
-                usleep(10000);
+                usleep(4167); // 1/4 of a frame at 60fps
                 sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
 
+                if (efd->fd != fd) {
+                    sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+                    errno = EBADF;
+                    return -1;
+                }
                 if (efd->value != 0) {
                     break;
                 }
@@ -165,6 +194,11 @@ ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
                 usleep(10000);
                 sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
 
+                if (efd->fd != fd) {
+                    sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+                    errno = EBADF;
+                    return -1;
+                }
                 if (0xfffffffffffffffe - efd->value >= val) {
                     break;
                 }
