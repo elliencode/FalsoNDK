@@ -1,9 +1,14 @@
 # FalsoNDK (alpha)
 FalsoNDK is a library that implements a certain part of Android NDK and enables running Android apps that rely on it (android_main / ANativeActivity-based apps).
 
-Now it is heavily tied to VitaSDK and implements eventfd, pipe, epoll that VitaSDK lacks. In future these things will be abstracted and the library will become possible to use on other platforms as well.
+This implements eventfd, pipe, epoll that VitaSDK lacks in a very basic way that is compliant enough to serve client Android apps but not good enough for proper usage of those features in other, heavier applications, at least because it will be SLOW. 
 
-Documentation and usage tutorial is in progress.
+Game ports using FalsoNDK:
+- https://github.com/Rinnegatamante/soulcalibur_vita
+- https://github.com/Nevak/bgda-vita
+- https://github.com/v-atamanenko/gof2-vita
+- https://github.com/elliencode/actionsquad-psv-internal
+- And others.
 
 ### Usage
 
@@ -59,6 +64,8 @@ void main() {
 ```
 
 
-Define `FNDK_SAFER_SLOWER` to do proper checks for pipefd / eventfd in fndk_read / fndk_write if you're experiencing issues. Otherwise a fast check is used.
+## Flags
 
+Define `FNDK_SAFER_SLOWER` to do proper checks for pipefd / eventfd in fndk_read / fndk_write if you're experiencing issues. Otherwise, a fast check is used.
 
+There's also various `DEBUG_*` like DEBUG_EPOLL, DEBUG_EVENTFD, etc. that you can define to get verbose logs if something isn't working right.
