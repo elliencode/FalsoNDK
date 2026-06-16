@@ -17,7 +17,7 @@ typedef struct eventfd_internal {
 } eventfd_internal;
 
 static eventfd_internal eventfd_pool[EVENTFD_MAX];
-SceKernelLwMutexWork eventfd_pool_mutex{};
+static SceKernelLwMutexWork eventfd_pool_mutex{};
 
 __attribute__((constructor))
 static void eventfd_pool_init() {

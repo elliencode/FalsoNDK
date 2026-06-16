@@ -14,39 +14,27 @@
 #endif
 
 typedef struct pipefd_internal {
-    int readfd; // >=0 indicates that it's in use
-    int writefd;
-    int msgpipe;
-    bool readable;
-    bool writeable;
+    int readfd = -1; // >=0 indicates that it's in use
+    int writefd = -1;
+    int msgpipe = -1;
+    bool readable{};
+    bool writeable{};
 } pipefd_internal;
 
 static pipefd_internal pipefd_pool[PIPEFD_MAX];
-SceKernelLwMutexWork pipefd_pool_mutex = {{0xFEE1DEAD}};
+static SceKernelLwMutexWork pipefd_pool_mutex{};
+
+__attribute__((constructor))
+static void pipefd_pool_init() {
+    sceKernelCreateLwMutex(&pipefd_pool_mutex, "pipefd_pool_mutex", 0, 0, nullptr);
+}
 
 int fndk_pipe(int pipefd[2]) {
 #ifdef DEBUG_PIPEFD
     ALOGD("fndk_pipe: called\n");
 #endif
 
-    if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
-        sceKernelCreateLwMutex(&pipefd_pool_mutex, "pipefd_pool_mutex", 0, 0, nullptr);
-        sceKernelLockLwMutex(&pipefd_pool_mutex, 1, nullptr);
-
-        for (int i = 0; i < PIPEFD_MAX; ++i) {
-            pipefd_pool[i].readfd = -1;
-            pipefd_pool[i].writefd = -1;
-            pipefd_pool[i].msgpipe = -1;
-            pipefd_pool[i].readable = false;
-            pipefd_pool[i].writeable = false;
-        }
-
-        #ifdef DEBUG_PIPEFD
-            ALOGD("fndk_pipe: initialized the pool\n");
-        #endif
-    } else {
-        sceKernelLockLwMutex(&pipefd_pool_mutex, 1, nullptr);
-    }
+    sceKernelLockLwMutex(&pipefd_pool_mutex, 1, nullptr);
 
     int ret = sceKernelCreateMsgPipe("fndk_pipe", MSGPIPE_MEMTYPE_USER_MAIN, MSGPIPE_THREAD_ATTR_PRIO, 4 * 4096, NULL);
     if (ret < 0) {
@@ -91,27 +79,24 @@ int fndk_pipe(int pipefd[2]) {
 }
 
 ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
-    if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+        errno = EINVAL;
         return -1;
     }
+
+    int idx = (fd - PIPEFD_MARGIN) / 2;
     sceKernelLockLwMutex(&pipefd_pool_mutex, 1, NULL);
 
-    pipefd_internal * pipe = nullptr;
-    for (int i = 0; i < PIPEFD_MAX; i++) {
-        if (pipefd_pool[i].readfd == fd) {
-#ifdef DEBUG_PIPEFD
-            ALOGD("fndk_pipe_read: found pipe<%i, %i> for reading", pipefd_pool[i].readfd, pipefd_pool[i].writefd);
-#endif
-            pipe = &pipefd_pool[i];
-            break;
-        }
-    }
-
-    if (!pipe) {
+    pipefd_internal * pipe = &pipefd_pool[idx];
+    if (pipe->readfd != fd) {
         sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
         errno = EINVAL;
         return -1;
     }
+
+#ifdef DEBUG_PIPEFD
+    ALOGD("fndk_pipe_read: found pipe<%i, %i> for reading", pipe->readfd, pipe->writefd);
+#endif
     ssize_t rlen = count;
     if (rlen > 4 * 4096) rlen = 4 * 4096;
     size_t pResult;
@@ -136,27 +121,24 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
 }
 
 ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
-    if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+        errno = EINVAL;
         return -1;
     }
+
+    int idx = (fd - PIPEFD_MARGIN) / 2;
     sceKernelLockLwMutex(&pipefd_pool_mutex, 1, NULL);
 
-    pipefd_internal * pipe = nullptr;
-    for (int i = 0; i < PIPEFD_MAX; ++i) {
-        if (pipefd_pool[i].writefd == fd) {
-#ifdef DEBUG_PIPEFD
-            ALOGD("fndk_pipe_write: found pipe<%i, %i> for writing", pipefd_pool[i].readfd, pipefd_pool[i].writefd);
-#endif
-            pipe = &pipefd_pool[i];
-            break;
-        }
-    }
-
-    if (!pipe) {
+    pipefd_internal * pipe = &pipefd_pool[idx];
+    if (pipe->writefd != fd) {
         sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
         errno = EINVAL;
         return -1;
     }
+
+#ifdef DEBUG_PIPEFD
+    ALOGD("fndk_pipe_write: found pipe<%i, %i> for writing", pipe->readfd, pipe->writefd);
+#endif
 
     size_t len = count;
     if (len > 4 * 4096) len = 4 * 4096;
@@ -180,21 +162,28 @@ ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
 }
 
 void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable, bool consume) {
-    if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+        *is_readable = false;
+        *is_writeable = false;
         return;
     }
+
+    int idx = (fd - PIPEFD_MARGIN) / 2;
     sceKernelLockLwMutex(&pipefd_pool_mutex, 1, NULL);
 
-    for (int u = 0; u < PIPEFD_MAX; u++) {
-        if (pipefd_pool[u].writefd == fd || pipefd_pool[u].readfd == fd) {
-            *is_readable = pipefd_pool[u].readable;
-            *is_writeable = pipefd_pool[u].writeable;
-            if (consume) {
-                pipefd_pool[u].readable = false;
-                pipefd_pool[u].writeable = false;
-            }
-            break;
-        }
+    pipefd_internal * pipe = &pipefd_pool[idx];
+    if (pipe->readfd != fd && pipe->writefd != fd) {
+        *is_readable = false;
+        *is_writeable = false;
+        sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+        return;
+    }
+
+    *is_readable = pipe->readable;
+    *is_writeable = pipe->writeable;
+    if (consume) {
+        pipe->readable = false;
+        pipe->writeable = false;
     }
 
     sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
@@ -230,20 +219,12 @@ int fndk_pipe_close(int fd) {
 
 bool is_pipe(int fd) {
 #ifdef FNDK_SAFER_SLOWER
-    pipefd_internal * p = nullptr;
-
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) return false;
+    int idx = (fd - PIPEFD_MARGIN) / 2;
     sceKernelLockLwMutex(&pipefd_pool_mutex, 1, NULL);
-
-    for (int i = 0; i < PIPEFD_MAX; ++i) {
-        if (pipefd_pool[i].readfd == fd || pipefd_pool[i].writefd == fd) {
-            p = &pipefd_pool[i];
-            break;
-        }
-    }
-
+    bool result = pipefd_pool[idx].readfd == fd || pipefd_pool[idx].writefd == fd;
     sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
-
-    return p != nullptr;
+    return result;
 #else
     return (fd >= PIPEFD_MARGIN) && (fd < (PIPEFD_MARGIN + PIPEFD_MAX));
 #endif
