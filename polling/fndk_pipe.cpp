@@ -80,7 +80,7 @@ int fndk_pipe(int pipefd[2]) {
 
 ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
     if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
-        errno = EINVAL;
+        errno = EBADF;
         return -1;
     }
 
@@ -90,7 +90,7 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
     pipefd_internal * pipe = &pipefd_pool[idx];
     if (pipe->readfd != fd) {
         sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
-        errno = EINVAL;
+        errno = EBADF;
         return -1;
     }
 
@@ -101,10 +101,14 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
     if (rlen > 4 * 4096) rlen = 4 * 4096;
     size_t pResult;
     ssize_t ret = sceKernelReceiveMsgPipe(pipe->msgpipe, buf, rlen, 1, &pResult, NULL);
-    if (ret == 0) {
-        ret = rlen;
-        pipe->writeable = true;
+    if (ret != 0) {
+        sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+        errno = EIO;
+        return -1;
     }
+
+    ret = rlen;
+    pipe->writeable = true;
 
     if (pResult == 0) {
 #ifdef DEBUG_PIPEFD
@@ -122,7 +126,7 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
 
 ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
     if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
-        errno = EINVAL;
+        errno = EBADF;
         return -1;
     }
 
@@ -132,7 +136,7 @@ ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
     pipefd_internal * pipe = &pipefd_pool[idx];
     if (pipe->writefd != fd) {
         sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
-        errno = EINVAL;
+        errno = EBADF;
         return -1;
     }
 
@@ -144,20 +148,21 @@ ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
     if (len > 4 * 4096) len = 4 * 4096;
 
     ssize_t ret = sceKernelSendMsgPipe(pipe->msgpipe, (void *)buf, len, SCE_KERNEL_MSG_PIPE_MODE_FULL, NULL, NULL);
-    if (ret == 0) {
-        ret = len;
-
-#ifdef DEBUG_PIPEFD
-        ALOGD("fndk_pipe_write: pipe<%i, %i> set as readable", pipe->readfd, pipe->writefd);
-#endif
-
-        pipe->readable = true;
+    if (ret != 0) {
+        sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+        errno = EIO;
+        return -1;
     }
 
-    sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
+    ret = len;
+    pipe->readable = true;
+
 #ifdef DEBUG_PIPEFD
+    ALOGD("fndk_pipe_write: pipe<%i, %i> set as readable", pipe->readfd, pipe->writefd);
     ALOGD("fndk_pipe_write: pipe<%i, %i>, count %i, ret %i", pipe->readfd, pipe->writefd, count, ret);
 #endif
+
+    sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
     return ret;
 }
 
