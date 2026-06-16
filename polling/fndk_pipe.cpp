@@ -9,6 +9,10 @@
 #define MSGPIPE_MEMTYPE_USER_MAIN 0x40
 #define MSGPIPE_THREAD_ATTR_PRIO (0x8 | 0x4)
 
+#ifndef SCE_KERNEL_MSG_PIPE_MODE_FULL
+#define SCE_KERNEL_MSG_PIPE_MODE_FULL 0x00000001U
+#endif
+
 typedef struct pipefd_internal {
     int readfd; // >=0 indicates that it's in use
     int writefd;
@@ -112,7 +116,10 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
     if (rlen > 4 * 4096) rlen = 4 * 4096;
     size_t pResult;
     ssize_t ret = sceKernelReceiveMsgPipe(pipe->msgpipe, buf, rlen, 1, &pResult, NULL);
-    if (ret == 0) { ret = rlen; }
+    if (ret == 0) {
+        ret = rlen;
+        pipe->writeable = true;
+    }
 
     if (pResult == 0) {
 #ifdef DEBUG_PIPEFD
@@ -127,8 +134,6 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
     sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
     return ret;
 }
-
-#define SCE_KERNEL_MSG_PIPE_MODE_FULL 0x00000001U
 
 ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
     if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
@@ -174,7 +179,7 @@ ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
     return ret;
 }
 
-void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable) {
+void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable, bool consume) {
     if (pipefd_pool_mutex.data[0] == 0xFEE1DEAD) {
         return;
     }
@@ -184,8 +189,10 @@ void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable) {
         if (pipefd_pool[u].writefd == fd || pipefd_pool[u].readfd == fd) {
             *is_readable = pipefd_pool[u].readable;
             *is_writeable = pipefd_pool[u].writeable;
-            pipefd_pool[u].readable = false;
-            pipefd_pool[u].writeable = false;
+            if (consume) {
+                pipefd_pool[u].readable = false;
+                pipefd_pool[u].writeable = false;
+            }
             break;
         }
     }

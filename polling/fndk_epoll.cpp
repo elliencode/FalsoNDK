@@ -273,7 +273,7 @@ int fndk_epoll_wait(int epfd, struct fndk_epoll_event *events, int maxevents, in
             if (is_eventfd(e.first)) {
                 fndk_eventfd_status(e.first, &is_readable, &is_writeable);
             } else if (is_pipe(e.first)) {
-                fndk_pipe_status(e.first, &is_readable, &is_writeable);
+                fndk_pipe_status(e.first, &is_readable, &is_writeable, true);
             } else {
 #ifdef DEBUG_EPOLL
                 ALOGD("fndk_epoll_wait: unknown fd type for fd %i", e.first);
