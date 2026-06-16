@@ -78,42 +78,33 @@ int fndk_eventfd_close(int fd) {
 
 bool is_eventfd(int fd) {
 #ifdef FNDK_SAFER_SLOWER
-    eventfd_internal * p = nullptr;
-
+    int idx = fd - EVENTFD_MARGIN;
+    if (idx < 0 || idx >= EVENTFD_MAX) return false;
     sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-
-    for (int i = 0; i < EVENTFD_MAX; ++i) {
-        if (eventfd_pool[i].fd == fd) {
-            p = &eventfd_pool[i];
-            break;
-        }
-    }
-
+    bool result = eventfd_pool[idx].fd == fd;
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
-
-    return p != nullptr;
+    return result;
 #else
     return (fd >= EVENTFD_MARGIN) && (fd < (EVENTFD_MARGIN + EVENTFD_MAX));
 #endif
 }
 
 ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
-    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-
-    eventfd_internal * efd = nullptr;
-
-    for (int i = 0; i < EVENTFD_MAX; ++i) {
-        if (eventfd_pool[i].fd == fd) {
-            efd = &eventfd_pool[i];
-            break;
-        }
+    int idx = fd - EVENTFD_MARGIN;
+    if (idx < 0 || idx >= EVENTFD_MAX) {
+        errno = EINVAL;
+        return -1;
     }
 
-    if (!efd) {
+    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
+
+    if (eventfd_pool[idx].fd != fd) {
         sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
         errno = EINVAL;
         return -1;
     }
+
+    eventfd_internal * efd = &eventfd_pool[idx];
 
     if (count < 8 || !buf) {
         sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
@@ -158,23 +149,21 @@ ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
 }
 
 ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
-    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-
-    uint64_t val;
-    eventfd_internal * efd = nullptr;
-
-    for (int i = 0; i < EVENTFD_MAX; ++i) {
-        if (eventfd_pool[i].fd == fd) {
-            efd = &eventfd_pool[i];
-            break;
-        }
+    int idx = fd - EVENTFD_MARGIN;
+    if (idx < 0 || idx >= EVENTFD_MAX) {
+        errno = EINVAL;
+        return -1;
     }
 
-    if (!efd) {
+    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
+
+    if (eventfd_pool[idx].fd != fd) {
         sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
         errno = EINVAL;
         return -1;
     }
+
+    eventfd_internal * efd = &eventfd_pool[idx];
 
     if (count < 8 || !buf) {
         sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
@@ -212,24 +201,26 @@ ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
 }
 
 void fndk_eventfd_status(int fd, bool * is_readable, bool * is_writeable) {
-    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, nullptr);
-
-    for (int u = 0; u < EVENTFD_MAX; ++u) {
-        if (eventfd_pool[u].fd == fd) {
-            *is_readable = eventfd_pool[u].value > 0;
-            *is_writeable = eventfd_pool[u].value < 0xfffffffffffffffe;
-
-            sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
-            return;
-        }
+    int idx = fd - EVENTFD_MARGIN;
+    if (idx < 0 || idx >= EVENTFD_MAX) {
+        *is_readable = false;
+        *is_writeable = false;
+        return;
     }
 
+    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, nullptr);
+
+    if (eventfd_pool[idx].fd != fd) {
 #ifdef DEBUG_EVENTFD
-    ALOGD("Requested eventfd_status for an unexpeced fd %d!\n", fd);
+        ALOGD("Requested eventfd_status for an unexpected fd %d!\n", fd);
 #endif
+        *is_readable = false;
+        *is_writeable = false;
+        sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
+        return;
+    }
 
-    *is_readable = false;
-    *is_writeable = false;
-
+    *is_readable = eventfd_pool[idx].value > 0;
+    *is_writeable = eventfd_pool[idx].value < 0xfffffffffffffffe;
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
 }
