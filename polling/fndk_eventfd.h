@@ -1,12 +1,13 @@
 #pragma once
 
-#include <cstdint>
-#include <psp2/kernel/threadmgr.h>
-#include <malloc.h>
-#include <cerrno>
-#include <cstdio>
-#include <sys/unistd.h>
-#include "../fndk_epoll.h"
+#include <fcntl.h>
+
+/** The eventfd() flag to provide semaphore-like semantics for reads. */
+#define FNDK_EFD_SEMAPHORE (1 << 0)
+/** The eventfd() flag for a close-on-exec file descriptor. */
+#define FNDK_EFD_CLOEXEC O_CLOEXEC
+/** The eventfd() flag for a non-blocking file descriptor. */
+#define FNDK_EFD_NONBLOCK O_NONBLOCK
 
 #ifdef __cplusplus
 extern "C" {

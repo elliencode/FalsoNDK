@@ -2,7 +2,9 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cerrno>
 #include <map>
+#include <sys/unistd.h>
 #include <psp2/kernel/threadmgr.h>
 
 #include "FalsoNDK_Utils.h"

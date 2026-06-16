@@ -24,13 +24,6 @@
 #define FNDK_EPOLLONESHOT (1U << 30)
 #define FNDK_EPOLLET (1U << 31)
 
-/** The eventfd() flag to provide semaphore-like semantics for reads. */
-#define FNDK_EFD_SEMAPHORE (1 << 0)
-/** The eventfd() flag for a close-on-exec file descriptor. */
-#define FNDK_EFD_CLOEXEC O_CLOEXEC
-/** The eventfd() flag for a non-blocking file descriptor. */
-#define FNDK_EFD_NONBLOCK O_NONBLOCK
-
 #ifdef __cplusplus
 extern "C" {
 #endif

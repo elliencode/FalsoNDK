@@ -1,11 +1,9 @@
 #include <cstdint>
 #include <psp2/kernel/threadmgr.h>
-#include <malloc.h>
 #include <cerrno>
 #include <cstdio>
 #include <sys/unistd.h>
 #include "FalsoNDK_Utils.h"
-#include "../fndk_epoll.h"
 
 #include "fndk_eventfd.h"
 
@@ -16,33 +14,24 @@ typedef struct eventfd_internal {
     int fd = -1; // >=0 indicates that it's in use
     uint64_t value{};
     int flags{};
-    SceKernelLwMutexWork * mutex{};
 } eventfd_internal;
 
 static eventfd_internal eventfd_pool[EVENTFD_MAX];
-SceKernelLwMutexWork eventfd_pool_mutex = {{0xFEE1DEAD}};
+SceKernelLwMutexWork eventfd_pool_mutex{};
+
+__attribute__((constructor))
+static void eventfd_pool_init() {
+    sceKernelCreateLwMutex(&eventfd_pool_mutex, "eventfd_pool_mutex", 0, 0, NULL);
+}
 
 int fndk_eventfd(unsigned int initval, int flags) {
-    if (eventfd_pool_mutex.data[0] == 0xFEE1DEAD) {
-        sceKernelCreateLwMutex(&eventfd_pool_mutex, "eventfd_pool_mutex", 0, 0, NULL);
-        sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-
-        for (int i = 0; i < EVENTFD_MAX; ++i) {
-            eventfd_pool[i].fd = -1;
-            eventfd_pool[i].value = 0;
-            eventfd_pool[i].flags = 0;
-            eventfd_pool[i].mutex = (SceKernelLwMutexWork *) malloc(sizeof(SceKernelLwMutexWork));
-        }
-    } else {
-        sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-    }
+    sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
 
     eventfd_internal * fd = nullptr;
     for (int i = 0; i < EVENTFD_MAX; ++i) {
         if (eventfd_pool[i].fd == -1) {
             eventfd_pool[i].fd = i + EVENTFD_MARGIN;
             fd = &eventfd_pool[i];
-            sceKernelCreateLwMutex(eventfd_pool[i].mutex, "eventfd_mutex", 0, 0, NULL);
             break;
         }
     }
@@ -85,9 +74,6 @@ bool is_eventfd(int fd) {
 }
 
 ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
-    if (eventfd_pool_mutex.data[0] == 0xFEE1DEAD) {
-        return -1;
-    }
     sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
 
     eventfd_internal * efd = nullptr;
@@ -111,21 +97,16 @@ ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
         return -1;
     }
 
-    sceKernelLockLwMutex(efd->mutex, 1, NULL);
-
     if (efd->value == 0) {
         if (efd->flags & FNDK_EFD_NONBLOCK) {
-            sceKernelUnlockLwMutex(efd->mutex, 1);
             sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
             errno = EAGAIN;
             return -1;
         } else {
             for (;;) {
-                sceKernelUnlockLwMutex(efd->mutex, 1);
                 sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
                 usleep(10000);
                 sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-                sceKernelLockLwMutex(efd->mutex, 1, NULL);
 
                 if (efd->value != 0) {
                     break;
@@ -134,26 +115,20 @@ ssize_t fndk_eventfd_read(int fd, void *buf, size_t count) {
         }
     }
 
-    if (efd->flags & FNDK_EFD_SEMAPHORE && efd->value != 0) {
+    if (efd->flags & FNDK_EFD_SEMAPHORE) {
         *(uint64_t *)buf = (uint64_t) 1;
         efd->value--;
-        sceKernelUnlockLwMutex(efd->mutex, 1);
         sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
         return 8;
     }
 
-    // Non-semaphore, non-zero value
     *(uint64_t *)buf = efd->value;
     efd->value = 0;
-    sceKernelUnlockLwMutex(efd->mutex, 1);
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
     return 8;
 }
 
 ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
-    if (eventfd_pool_mutex.data[0] == 0xFEE1DEAD) {
-        return -1;
-    }
     sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
 
     uint64_t val;
@@ -178,22 +153,17 @@ ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
         return -1;
     }
 
-    sceKernelLockLwMutex(efd->mutex, 1, NULL);
-
     val = *(uint64_t *) buf;
     if (0xfffffffffffffffe - efd->value < val) {
         if (efd->flags & FNDK_EFD_NONBLOCK) {
-            sceKernelUnlockLwMutex(efd->mutex, 1);
             sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
             errno = EAGAIN;
             return -1;
         } else {
             for (;;) {
-                sceKernelUnlockLwMutex(efd->mutex, 1);
                 sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
                 usleep(10000);
                 sceKernelLockLwMutex(&eventfd_pool_mutex, 1, NULL);
-                sceKernelLockLwMutex(efd->mutex, 1, NULL);
 
                 if (0xfffffffffffffffe - efd->value >= val) {
                     break;
@@ -203,24 +173,17 @@ ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
     }
 
     efd->value += val;
-    sceKernelUnlockLwMutex(efd->mutex, 1);
     sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
     return 8;
 }
 
 void fndk_eventfd_status(int fd, bool * is_readable, bool * is_writeable) {
-    if (eventfd_pool_mutex.data[0] == 0xFEE1DEAD) {
-        return;
-    }
-
     sceKernelLockLwMutex(&eventfd_pool_mutex, 1, nullptr);
 
     for (int u = 0; u < EVENTFD_MAX; ++u) {
         if (eventfd_pool[u].fd == fd) {
-            sceKernelLockLwMutex(eventfd_pool[u].mutex, 1, nullptr);
             *is_readable = eventfd_pool[u].value > 0;
             *is_writeable = eventfd_pool[u].value < 0xfffffffffffffffe;
-            sceKernelUnlockLwMutex(eventfd_pool[u].mutex, 1);
             break;
         }
     }
