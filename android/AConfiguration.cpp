@@ -69,6 +69,7 @@ void AConfiguration_getCountry(AConfiguration* config, char* outCountry) {
     if (!config) {
         outCountry[0] = '\0';
         outCountry[1] = '\0';
+        return;
     }
     auto * conf = (configuration *) config;
     outCountry[0] = conf->country[0];
@@ -97,6 +98,7 @@ void AConfiguration_getLanguage(AConfiguration* config, char* outLanguage) {
     if (!config) {
         outLanguage[0] = '\0';
         outLanguage[1] = '\0';
+        return;
     }
     auto * conf = (configuration *) config;
     outLanguage[0] = conf->language[0];
