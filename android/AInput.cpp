@@ -1,12 +1,14 @@
-#include "AInput.h"
-#include "fndk_epoll.h"
-#include "FalsoNDK_Utils.h"
-#include "utils/controls.h"
-#include "polling/fndk_eventfd.h"
+#include "android/AInput.h"
 
 #include <vector>
 #include <pthread.h>
 #include <cstring>
+
+#include "FalsoNDK_Utils.h"
+#include "linux/fndk_epoll.h"
+#include "linux/fndk_eventfd.h"
+#include "linux/fndk_unistd.h"
+#include "shim/controls.h"
 
 static AInputQueue * g_AInputQueue = nullptr;
 

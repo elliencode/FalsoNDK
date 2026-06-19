@@ -1,7 +1,8 @@
+#include "android/ANativeWindow.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
-#include "ANativeWindow.h"
 
 typedef struct nativeWindow {
     int dummy;

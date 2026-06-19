@@ -1,4 +1,5 @@
-#include "ALooper.h"
+#include "android/ALooper.h"
+
 #include <pthread.h>
 #include <cstdio>
 #include <cstdlib>
@@ -9,9 +10,9 @@
 #include <sys/unistd.h>
 
 #include "FalsoNDK_Utils.h"
-#include "fndk_epoll.h"
+#include "linux/fndk_epoll.h"
 #include "linux/fndk_unistd.h"
-#include "polling/fndk_eventfd.h"
+#include "linux/fndk_eventfd.h"
 
 // Maximum number of file descriptors for which to retrieve poll events each iteration.
 static const int EPOLL_MAX_EVENTS = 16;

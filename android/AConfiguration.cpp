@@ -1,6 +1,7 @@
+#include "android/AConfiguration.h"
+
 #include <cstdlib>
 #include <cstring>
-#include "AConfiguration.h"
 
 typedef struct configuration {
     char country[2] = {'\0', '\0'};

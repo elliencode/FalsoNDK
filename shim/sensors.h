@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../android/ASensor.h"
+#include "android/ASensor.h"
 
 void sensors_init(ASensorEventQueue * queue);
 

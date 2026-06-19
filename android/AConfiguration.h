@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-#include "AAssetManager.h"
+#include "android/AAssetManager.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -473,7 +473,7 @@ enum {
      */
     ACONFIGURATION_COLOR_MODE = 0x10000,
     /**
-     * Constant used to to represent MNC (Mobile Network Code) zero.
+     * Constant used to represent MNC (Mobile Network Code) zero.
      * 0 cannot be used, since it is used to represent an undefined MNC.
      */
     ACONFIGURATION_MNC_ZERO = 0xffff,

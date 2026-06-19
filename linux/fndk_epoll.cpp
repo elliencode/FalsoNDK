@@ -1,4 +1,4 @@
-#include "polling/fndk_epoll.h"
+#include "linux/fndk_epoll.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -8,8 +8,8 @@
 #include <psp2/kernel/threadmgr.h>
 
 #include "FalsoNDK_Utils.h"
-#include "polling/fndk_eventfd.h"
-#include "polling/fndk_pipe.h"
+#include "linux/fndk_eventfd.h"
+#include "linux/fndk_pipe.h"
 
 #define EPOLL_FD_MARGIN 128
 #define EPOLL_FD_MAX 64

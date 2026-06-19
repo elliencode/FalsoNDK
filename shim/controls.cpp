@@ -7,15 +7,16 @@
  * of the MIT license. See the LICENSE file for details.
  */
 
-#include "controls.h"
+#include "shim/controls.h"
 
 #include <psp2/kernel/threadmgr.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <cstring>
 #include <psp2/kernel/clib.h>
-#include "../keycodes.h"
-#include "../android/AInput.h"
+
+#include "android/keycodes.h"
+#include "android/AInput.h"
 
 extern "C" {
     float L_INNER_DEADZONE __attribute__((weak)) = 0.20f;

@@ -1,6 +1,8 @@
+#include "linux/fndk_pipe.h"
+
 #include <psp2/kernel/threadmgr.h>
 #include <cerrno>
-#include "fndk_pipe.h"
+
 #include "FalsoNDK_Utils.h"
 
 #define PIPEFD_MARGIN 384

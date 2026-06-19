@@ -1,3 +1,5 @@
+#include "android/ASensor.h"
+
 #include <cstdio>
 #include <pthread.h>
 #include <cstring>
@@ -5,11 +7,11 @@
 #include <vector>
 #include <algorithm>
 
-#include "ASensor.h"
 #include "FalsoNDK_Utils.h"
-#include "utils/sensors.h"
-#include "fndk_epoll.h"
-#include "polling/fndk_eventfd.h"
+#include "shim/sensors.h"
+#include "linux/fndk_epoll.h"
+#include "linux/fndk_eventfd.h"
+#include "linux/fndk_unistd.h"
 
 static ASensorManager * g_ASensorManager = nullptr;
 static ASensorEventQueue * g_ASensorEventQueue = nullptr;

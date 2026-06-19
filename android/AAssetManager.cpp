@@ -1,17 +1,17 @@
 #include "android/AAssetManager.h"
-#include "FalsoNDK_Utils.h"
 
 #include <pthread.h>
 #include <malloc.h>
 #include <cstring>
 #include <cstdio>
+#include <string>
+#include <fcntl.h>
 
 #ifdef USE_SCELIBC_IO
 #include <libc_bridge/libc_bridge.h>
 #endif
 
-#include <string>
-#include <fcntl.h>
+#include "FalsoNDK_Utils.h"
 
 typedef struct assetManager {
     int dummy = 0; // TODO: mb we will need to store something here in future

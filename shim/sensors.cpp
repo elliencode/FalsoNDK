@@ -1,9 +1,10 @@
-#include "sensors.h"
-#include "FalsoNDK_Utils.h"
+#include "shim/sensors.h"
 
 #include <psp2/motion.h>
 #include <pthread.h>
 #include <psp2/kernel/threadmgr.h>
+
+#include "FalsoNDK_Utils.h"
 
 ASensorEventQueue * sensorEventQueue;
 

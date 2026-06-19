@@ -13,9 +13,9 @@
 #include <psp2/touch.h>
 #include <psp2/ctrl.h>
 #include <psp2/motion.h>
-
 #include <math.h>
-#include "../android/AInput.h"
+
+#include "android/AInput.h"
 
 #define GRAVITY_CONSTANT 9.807f
 

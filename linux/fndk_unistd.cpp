@@ -1,10 +1,10 @@
-#include "fndk_unistd.h"
+#include "linux/fndk_unistd.h"
 
 #include "sys/unistd.h"
 
-#include "fndk_epoll.h"
-#include "fndk_eventfd.h"
-#include "fndk_pipe.h"
+#include "linux/fndk_epoll.h"
+#include "linux/fndk_eventfd.h"
+#include "linux/fndk_pipe.h"
 
 ssize_t fndk_read(int fd, void *buf, size_t count) {
     if (is_eventfd(fd)) {
