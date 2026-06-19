@@ -152,7 +152,15 @@ off_t AAsset_seek(AAsset* asset, off_t offset, int whence) {
     auto ret = (off_t) fseek(a->f, offset, whence);
 #endif
 
-    return ret;
+    if (ret != 0) {
+        return -1;
+    }
+
+#ifdef USE_SCELIBC_IO
+    return (off_t) sceLibcBridge_ftell(a->f);
+#else
+    return (off_t) ftell(a->f);
+#endif
 }
 
 off_t AAsset_getRemainingLength(AAsset* asset) {
@@ -167,7 +175,11 @@ off_t AAsset_getRemainingLength(AAsset* asset) {
         return -1;
     }
 
-    return (off_t)(a->fileSize - a->bytesRead);
+#ifdef USE_SCELIBC_IO
+    return (off_t)(a->fileSize - sceLibcBridge_ftell(a->f));
+#else
+    return (off_t)(a->fileSize - ftell(a->f));
+#endif
 }
 
 off_t AAsset_getLength(AAsset* asset) {
@@ -205,13 +217,12 @@ int AAsset_openFileDescriptor(AAsset* asset, off_t* outStart, off_t* outLength) 
     if (outStart) *outStart = 0;
     if (outLength) *outLength = a->fileSize;
     if (a->opened) {
-        if (a->opened) {
 #ifdef USE_SCELIBC_IO
-            sceLibcBridge_fclose(a->f);
+        sceLibcBridge_fclose(a->f);
 #else
-            fclose(a->f);
+        fclose(a->f);
 #endif
-        }
+        a->f = NULL;
         a->opened = false;
     }
     int ret = open(a->filename, O_RDONLY);
