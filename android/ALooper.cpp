@@ -10,6 +10,7 @@
 
 #include "FalsoNDK_Utils.h"
 #include "fndk_epoll.h"
+#include "linux/fndk_unistd.h"
 #include "polling/fndk_eventfd.h"
 
 // Maximum number of file descriptors for which to retrieve poll events each iteration.
@@ -263,6 +264,7 @@ void rebuildEpollLocked(internal_ALooper * self) {
 #if DEBUG_CALLBACKS
         ALOGD("%p ~ rebuildEpollLocked - rebuilding epoll set", self);
 #endif
+        fndk_close((self->mEpollFd));
         self->mEpollFd = -1;
     }
 
