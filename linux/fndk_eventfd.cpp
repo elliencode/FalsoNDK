@@ -171,7 +171,7 @@ ssize_t fndk_eventfd_write(int fd, const void *buf, size_t count) {
         return -1;
     }
 
-    val = *(uint64_t *) buf;
+    uint64_t val = *(uint64_t *) buf;
     if (0xfffffffffffffffe - efd->value < val) {
         if (efd->flags & FNDK_EFD_NONBLOCK) {
             sceKernelUnlockLwMutex(&eventfd_pool_mutex, 1);
