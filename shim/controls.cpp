@@ -224,10 +224,10 @@ void pollTouch() {
 }
 
 static ButtonMapping mapping[] = {
-        { SCE_CTRL_UP,        AKEYCODE_DPAD_LEFT },
-        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_RIGHT },
-        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_UP },
-        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_DOWN},
+        { SCE_CTRL_UP,        AKEYCODE_DPAD_UP },
+        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_DOWN },
+        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_LEFT },
+        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_RIGHT },
         { SCE_CTRL_CROSS,     AKEYCODE_BUTTON_A },
         { SCE_CTRL_CIRCLE,    AKEYCODE_BUTTON_B },
         { SCE_CTRL_SQUARE,    AKEYCODE_BUTTON_X },
