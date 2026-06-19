@@ -1,8 +1,9 @@
 #include "android/AInput.h"
 
 #include <vector>
-#include <pthread.h>
+#include <psp2/kernel/threadmgr.h>
 #include <cstring>
+#include <cerrno>
 
 #include "FalsoNDK_Utils.h"
 #include "linux/fndk_epoll.h"
@@ -15,7 +16,7 @@ static AInputQueue * g_AInputQueue = nullptr;
 typedef struct inputQueue {
     int mDispatchFd;
     std::vector<ALooper*> mAppLoopers;
-    pthread_mutex_t mLock;
+    SceKernelLwMutexWork mLock;
     std::vector<AInputEvent*> mPendingEvents;
 } inputQueue;
 
@@ -31,7 +32,7 @@ AInputQueue * AInputQueue_create() {
         ALOGD("Created eventfd for AInputQueue: #%i", iq->mDispatchFd);
     }
 
-    pthread_mutex_init(&iq->mLock, nullptr);
+    sceKernelCreateLwMutex(&iq->mLock, "input_queue_lock", 0, 0, nullptr);
     g_AInputQueue = reinterpret_cast<AInputQueue *>(iq);
 
     controls_init(g_AInputQueue);
@@ -44,11 +45,11 @@ void AInputQueue_attachLooper(AInputQueue* queue, ALooper* looper,
     if (!queue || !looper) return;
     auto * q = reinterpret_cast<inputQueue *>(queue);
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     for (size_t i = 0; i < q->mAppLoopers.size(); i++) {
         if (looper == q->mAppLoopers[i]) {
-            pthread_mutex_unlock(&q->mLock);
+            sceKernelUnlockLwMutex(&q->mLock, 1);
             return;
         }
     }
@@ -58,19 +59,19 @@ void AInputQueue_attachLooper(AInputQueue* queue, ALooper* looper,
     ALOGD("AInputQueue (%p) : attaching looper (%p) to our FD %i", q, looper, q->mDispatchFd);
 #endif
     ALooper_addFd(looper, q->mDispatchFd, ident, ALOOPER_EVENT_INPUT, callback, data);
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 }
 
 void AInputQueue_detachLooper(AInputQueue* queue) {
     if (!queue) return;
     auto * q = reinterpret_cast<inputQueue *>(queue);
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
     for (size_t i = 0; i < q->mAppLoopers.size(); i++) {
         ALooper_removeFd(q->mAppLoopers[i], q->mDispatchFd);
     }
     q->mAppLoopers.clear();
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 }
 
 int32_t AInputQueue_hasEvents(AInputQueue* queue) {
@@ -96,7 +97,7 @@ int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
 
     auto * q = reinterpret_cast<inputQueue *>(queue);
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
     *outEvent = NULL;
     if (!q->mPendingEvents.empty()) {
         *outEvent = q->mPendingEvents[0];
@@ -115,7 +116,7 @@ int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
     }
 
     int ret = *outEvent != NULL ? 0 : -EAGAIN;
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
     return ret;
 }
 
@@ -132,7 +133,7 @@ void AInputQueue_enqueueEvent(AInputQueue* queue, AInputEvent* event) {
     if (!queue || !event) return;
     auto * q = reinterpret_cast<inputQueue *>(queue);
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
     q->mPendingEvents.push_back(event);
     if (q->mPendingEvents.size() == 1) {
         uint64_t payload = 1;
@@ -141,7 +142,7 @@ void AInputQueue_enqueueEvent(AInputQueue* queue, AInputEvent* event) {
             ALOGW("Failed writing to dispatch fd: %s", strerror(errno));
         }
     }
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 }
 
 /**

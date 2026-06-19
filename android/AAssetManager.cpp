@@ -1,6 +1,6 @@
 #include "android/AAssetManager.h"
 
-#include <pthread.h>
+#include <psp2/kernel/threadmgr.h>
 #include <malloc.h>
 #include <cstring>
 #include <cstdio>
@@ -15,7 +15,7 @@
 
 typedef struct assetManager {
     int dummy = 0; // TODO: mb we will need to store something here in future
-    pthread_mutex_t mLock;
+    SceKernelLwMutexWork mLock;
 } assetManager;
 
 typedef struct aAsset {
@@ -31,13 +31,11 @@ static AAssetManager * g_AAssetManager = nullptr;
 AAssetManager * AAssetManager_create() {
     if (g_AAssetManager) return g_AAssetManager;
 
-    assetManager am;
+    auto * am = (assetManager *) malloc(sizeof(assetManager));
+    am->dummy = 0;
+    sceKernelCreateLwMutex(&am->mLock, "asset_mgr_lock", 0, 0, nullptr);
 
-    pthread_mutex_init(&am.mLock, nullptr);
-
-    g_AAssetManager = (AAssetManager *) malloc(sizeof(assetManager));
-    memcpy(g_AAssetManager, &am, sizeof(assetManager));
-
+    g_AAssetManager = (AAssetManager *) am;
     return g_AAssetManager;
 }
 

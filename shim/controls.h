@@ -10,6 +10,7 @@
 #ifndef FALSONDK_CONTROLS_H
 #define FALSONDK_CONTROLS_H
 
+#include <psp2/kernel/threadmgr.h>
 #include <psp2/touch.h>
 #include <psp2/ctrl.h>
 #include <psp2/motion.h>
@@ -40,7 +41,7 @@ typedef struct {
 } ButtonMapping;
 
 void controls_init(AInputQueue * queue);
-void * controls_poll(void * arg);
+int controls_poll(SceSize args, void * argp);
 void pollTouch();
 void pollPad();
 void pollAccel();

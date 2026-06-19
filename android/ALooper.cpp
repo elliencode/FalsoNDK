@@ -1,9 +1,10 @@
 #include "android/ALooper.h"
 
-#include <pthread.h>
+#include <psp2/kernel/threadmgr.h>
 #include <cstdio>
 #include <cstdlib>
 #include <climits>
+#include <cerrno>
 #include <vector>
 #include <cstring>
 #include <unordered_map>
@@ -19,8 +20,13 @@ static const int EPOLL_MAX_EVENTS = 16;
 
 constexpr uint64_t WAKE_EVENT_FD_SEQ = 1;
 
-pthread_key_t key;
-bool tls_initialized = false;
+static std::unordered_map<SceUID, ALooper*> s_looper_by_thread;
+static SceKernelLwMutexWork s_looper_tls_mutex{};
+
+__attribute__((constructor))
+static void looper_tls_init() {
+    sceKernelCreateLwMutex(&s_looper_tls_mutex, "looper_tls_mutex", 0, 0, nullptr);
+}
 
 using SequenceNumber = uint64_t;
 
@@ -92,7 +98,7 @@ struct internal_ALooper {
     bool mAllowNonCallbacks; // immutable
 
     int mWakeEventFd;  // immutable
-    pthread_mutex_t mLock;
+    SceKernelLwMutexWork mLock;
 
     std::vector<MessageEnvelope>* mMessageEnvelopes; // guarded by mLock
     bool mSendingMessage; // guarded by mLock
@@ -122,22 +128,14 @@ struct internal_ALooper {
 
 void rebuildEpollLocked(internal_ALooper * self);
 
-extern "C" void __destr_fn(void *parm)
-{
-    if (parm) free(parm);
-}
-
 ALooper* ALooper_forThread() {
-    if (!tls_initialized) {
-        if (pthread_key_create(&key, __destr_fn ) != 0) {
-            printf("pthread_key_create failed, errno=%d", errno);
-        } else {
-            tls_initialized = true;
-        }
-        return nullptr;
-    }
+    SceUID tid = sceKernelGetThreadId();
+    sceKernelLockLwMutex(&s_looper_tls_mutex, 1, nullptr);
+    auto it = s_looper_by_thread.find(tid);
+    ALooper* result = (it != s_looper_by_thread.end()) ? it->second : nullptr;
+    sceKernelUnlockLwMutex(&s_looper_tls_mutex, 1);
     // Will return NULL if there is no ALooper for the thread, as per specification.
-    return (ALooper*) pthread_getspecific(key);
+    return result;
 }
 
 ALooper* ALooper_prepare(int opts) {
@@ -160,14 +158,13 @@ ALooper* ALooper_prepare(int opts) {
 
     LOG_ALWAYS_FATAL_IF(ial->mWakeEventFd < 0, "Could not make wake event fd: %s", strerror(errno));
 
-    pthread_mutex_init(&ial->mLock, NULL);
+    sceKernelCreateLwMutex(&ial->mLock, "looper_lock", 0, 0, nullptr);
     rebuildEpollLocked(ial);
 
-    if (tls_initialized) {
-        if (pthread_setspecific(key, ial) != 0) {
-            printf("ALooper_prepare: pthread_setspecific failed with errno %d\n", errno);
-        }
-    }
+    SceUID tid = sceKernelGetThreadId();
+    sceKernelLockLwMutex(&s_looper_tls_mutex, 1, nullptr);
+    s_looper_by_thread[tid] = (ALooper *) ial;
+    sceKernelUnlockLwMutex(&s_looper_tls_mutex, 1);
 
     return (ALooper *) ial;
 }
@@ -338,7 +335,7 @@ int pollInner (int timeoutMillis) {
     self->mPolling = false;
 
     // Acquire lock.
-    pthread_mutex_lock(&self->mLock);
+    sceKernelLockLwMutex(&self->mLock, 1, nullptr);
 
     // Rebuild epoll set if needed.
     if (self->mEpollRebuildRequired) {
@@ -414,7 +411,7 @@ int pollInner (int timeoutMillis) {
                 Message message = messageEnvelope.message;
                 self->mMessageEnvelopes->erase(self->mMessageEnvelopes->begin());
                 self->mSendingMessage = true;
-                pthread_mutex_unlock(&self->mLock);
+                sceKernelUnlockLwMutex(&self->mLock, 1);
 
 #if DEBUG_POLL_AND_WAKE || DEBUG_CALLBACKS
                 ALOGD("%p ~ pollOnce - sending message: handler=%p, what=%d",
@@ -423,7 +420,7 @@ int pollInner (int timeoutMillis) {
                 handler->handleMessage(message);
             } // release handler
 
-            pthread_mutex_lock(&self->mLock);
+            sceKernelLockLwMutex(&self->mLock, 1, nullptr);
             self->mSendingMessage = false;
             result = ALOOPER_POLL_CALLBACK;
         } else {
@@ -434,7 +431,7 @@ int pollInner (int timeoutMillis) {
     }
 
     // Release lock.
-    pthread_mutex_unlock(&self->mLock);
+    sceKernelUnlockLwMutex(&self->mLock, 1);
 
     // Invoke all response callbacks.
     for (size_t i = 0; i < self->mResponses->size(); i++) {
@@ -453,9 +450,9 @@ int pollInner (int timeoutMillis) {
             if (response.request.callback != nullptr) {
                 int callbackResult = response.request.callback(fd, events, data);
                 if (callbackResult == 0) {
-                    pthread_mutex_lock(&self->mLock);
+                    sceKernelLockLwMutex(&self->mLock, 1, nullptr);
                     removeSequenceNumberLocked(self, response.seq);
-                    pthread_mutex_unlock(&self->mLock);
+                    sceKernelUnlockLwMutex(&self->mLock, 1);
                 }
             }
 
@@ -570,7 +567,7 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
         ident = ALOOPER_POLL_CALLBACK;
     }
 
-    pthread_mutex_lock(&self->mLock);
+    sceKernelLockLwMutex(&self->mLock, 1, nullptr);
 
     // There is a sequence number reserved for the WakeEventFd.
     if (self->mNextRequestSeq == WAKE_EVENT_FD_SEQ) self->mNextRequestSeq++;
@@ -588,7 +585,7 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
         int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, fd, &eventItem);
         if (epollResult < 0) {
             ALOGE("Error adding epoll events for fd %d: %s", fd, strerror(errno));
-            pthread_mutex_unlock(&self->mLock);
+            sceKernelUnlockLwMutex(&self->mLock, 1);
             return -1;
         }
         self->mRequests->emplace(seq, request);
@@ -619,13 +616,13 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
                 if (epollResult < 0) {
                     ALOGE("Error modifying or adding epoll events for fd %d: %s",
                           fd, strerror(errno));
-                    pthread_mutex_unlock(&self->mLock);
+                    sceKernelUnlockLwMutex(&self->mLock, 1);
                     return -1;
                 }
                 scheduleEpollRebuildLocked(self);
             } else {
                 ALOGE("Error modifying epoll events for fd %d: %s", fd, strerror(errno));
-                pthread_mutex_unlock(&self->mLock);
+                sceKernelUnlockLwMutex(&self->mLock, 1);
                 return -1;
             }
         }
@@ -634,7 +631,7 @@ int ALooper_addFd(ALooper* looper, int fd, int ident, int events,
         self->mRequests->emplace(seq, request);
         seq_it->second = seq;
     }
-    pthread_mutex_unlock(&self->mLock);
+    sceKernelUnlockLwMutex(&self->mLock, 1);
     return 1;
 }
 
@@ -642,14 +639,14 @@ int ALooper_removeFd(ALooper* looper, int fd) {
     if (!looper) return -1;
     auto * self = (internal_ALooper *) looper;
 
-    pthread_mutex_lock(&self->mLock);
+    sceKernelLockLwMutex(&self->mLock, 1, nullptr);
 
     const auto& it = self->mSequenceNumberByFd->find(fd);
     if (it == self->mSequenceNumberByFd->end()) {
-        pthread_mutex_unlock(&self->mLock);
+        sceKernelUnlockLwMutex(&self->mLock, 1);
         return 0;
     }
     int ret = removeSequenceNumberLocked(self,it->second);
-    pthread_mutex_unlock(&self->mLock);
+    sceKernelUnlockLwMutex(&self->mLock, 1);
     return ret;
 }

@@ -1,7 +1,7 @@
 #include "android/ASensor.h"
 
 #include <cstdio>
-#include <pthread.h>
+#include <psp2/kernel/threadmgr.h>
 #include <cstring>
 #include <map>
 #include <vector>
@@ -32,7 +32,7 @@ typedef struct aSensor {
 } aSensor;
 
 typedef struct sensorManager {
-    pthread_mutex_t mLock;
+    SceKernelLwMutexWork mLock;
     std::map<int, aSensor*> * sensors;
 } sensorManager;
 
@@ -40,7 +40,7 @@ typedef struct sensorEventQueue {
     int mDispatchFd;
     std::vector<ALooper*> * mAppLoopers;
     std::vector<ASensor*> * mSensors;
-    pthread_mutex_t mLock;
+    SceKernelLwMutexWork mLock;
     std::vector<ASensorEvent> * mPendingEvents;
 } sensorEventQueue;
 
@@ -105,10 +105,9 @@ const char * asensor_type_str(int t) {
 ASensorManager* ASensorManager_getInstance() {
     if (g_ASensorManager) return g_ASensorManager;
 
-    sensorManager sm;
-
-    pthread_mutex_init(&sm.mLock, nullptr);
-    sm.sensors = new std::map<int, aSensor*>;
+    auto * sm = (sensorManager *) malloc(sizeof(sensorManager));
+    sceKernelCreateLwMutex(&sm->mLock, "sensor_mgr_lock", 0, 0, nullptr);
+    sm->sensors = new std::map<int, aSensor*>;
 
     int handle = 0;
 
@@ -123,7 +122,7 @@ ASensorManager* ASensorManager_getInstance() {
     sensor_accel->handle = handle++;
     sensor_accel->type = ASENSOR_TYPE_ACCELEROMETER;
     sensor_accel->name = "PSVita Built-in Accelerometer";
-    sm.sensors->insert(std::pair<int, aSensor *>(sensor_accel->type, sensor_accel));
+    sm->sensors->insert(std::pair<int, aSensor *>(sensor_accel->type, sensor_accel));
 
     /**
      * ASENSOR_TYPE_MAGNETIC_FIELD
@@ -136,7 +135,7 @@ ASensorManager* ASensorManager_getInstance() {
     sensor_magneto->handle = handle++;
     sensor_magneto->type = ASENSOR_TYPE_MAGNETIC_FIELD;
     sensor_magneto->name = "PSVita Built-in Magnetometer";
-    sm.sensors->insert(std::pair<int, aSensor *>(sensor_magneto->type, sensor_magneto));
+    sm->sensors->insert(std::pair<int, aSensor *>(sensor_magneto->type, sensor_magneto));
 
     /**
      * ASENSOR_TYPE_GYROSCOPE
@@ -149,7 +148,7 @@ ASensorManager* ASensorManager_getInstance() {
     sensor_gyro->handle = handle++;
     sensor_gyro->type = ASENSOR_TYPE_GYROSCOPE;
     sensor_gyro->name = "PSVita Built-in Gyroscope";
-    sm.sensors->insert(std::pair<int, aSensor *>(sensor_gyro->type, sensor_gyro));
+    sm->sensors->insert(std::pair<int, aSensor *>(sensor_gyro->type, sensor_gyro));
 
     /**
      * ASENSOR_TYPE_GRAVITY
@@ -162,7 +161,7 @@ ASensorManager* ASensorManager_getInstance() {
     sensor_gravity->handle = handle++;
     sensor_gravity->type = ASENSOR_TYPE_GRAVITY;
     sensor_gravity->name = "PSVita Built-in Gravity Sensor";
-    sm.sensors->insert(std::pair<int, aSensor *>(sensor_gravity->type, sensor_gravity));
+    sm->sensors->insert(std::pair<int, aSensor *>(sensor_gravity->type, sensor_gravity));
 
     /**
      * ASENSOR_TYPE_LINEAR_ACCELERATION
@@ -175,10 +174,9 @@ ASensorManager* ASensorManager_getInstance() {
     sensor_accel_linear->handle = handle++;
     sensor_accel_linear->type = ASENSOR_TYPE_LINEAR_ACCELERATION;
     sensor_accel_linear->name = "PSVita Built-in Linear Acceleration Sensor";
-    sm.sensors->insert(std::pair<int, aSensor *>(sensor_accel_linear->type, sensor_accel_linear));
+    sm->sensors->insert(std::pair<int, aSensor *>(sensor_accel_linear->type, sensor_accel_linear));
 
-    g_ASensorManager = (ASensorManager *) malloc(sizeof(sensorManager));
-    memcpy(g_ASensorManager, &sm, sizeof(sensorManager));
+    g_ASensorManager = (ASensorManager *) sm;
 
     return g_ASensorManager;
 }
@@ -200,38 +198,36 @@ ASensorEventQueue* ASensorManager_createEventQueue(ASensorManager* manager,
     if (!looper) return nullptr;
 
     if (!g_ASensorEventQueue) {
-        sensorEventQueue seq;
-        seq.mDispatchFd = fndk_eventfd(0, FNDK_EFD_NONBLOCK | FNDK_EFD_SEMAPHORE);
-        seq.mAppLoopers = new std::vector<ALooper *>;
-        seq.mPendingEvents = new std::vector<ASensorEvent>;
-        seq.mSensors = new std::vector<ASensor *>;
+        auto * seq = (sensorEventQueue *) malloc(sizeof(sensorEventQueue));
+        seq->mDispatchFd = fndk_eventfd(0, FNDK_EFD_NONBLOCK | FNDK_EFD_SEMAPHORE);
+        seq->mAppLoopers = new std::vector<ALooper *>;
+        seq->mPendingEvents = new std::vector<ASensorEvent>;
+        seq->mSensors = new std::vector<ASensor *>;
 
-        if (seq.mDispatchFd < 0) {
+        if (seq->mDispatchFd < 0) {
             ALOGE("eventfd creation for ASensorEventQueue failed: %s\n", strerror(errno));
         }
 
-        pthread_mutex_init(&seq.mLock, nullptr);
-
-        g_ASensorEventQueue = (ASensorEventQueue *) malloc(sizeof(sensorEventQueue));
-        memcpy(g_ASensorEventQueue, &seq, sizeof(sensorEventQueue));
+        sceKernelCreateLwMutex(&seq->mLock, "sensor_queue_lock", 0, 0, nullptr);
+        g_ASensorEventQueue = (ASensorEventQueue *) seq;
 
         sensors_init(g_ASensorEventQueue);
     }
 
     auto * q = (sensorEventQueue *) g_ASensorEventQueue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     for (auto * l : * q->mAppLoopers) {
         if (looper == l) {
-            pthread_mutex_unlock(&q->mLock);
+            sceKernelUnlockLwMutex(&q->mLock, 1);
             return g_ASensorEventQueue;
         }
     }
 
     q->mAppLoopers->push_back(looper);
     ALooper_addFd(looper, q->mDispatchFd, ident, ALOOPER_EVENT_INPUT, callback, data);
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 
     return g_ASensorEventQueue;
 }
@@ -241,17 +237,17 @@ int ASensorEventQueue_enableSensor(ASensorEventQueue* queue, ASensor const* sens
 
     auto * q = (sensorEventQueue *) g_ASensorEventQueue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     for (auto * s : * q->mSensors) {
         if (sensor == s) {
-            pthread_mutex_unlock(&q->mLock);
+            sceKernelUnlockLwMutex(&q->mLock, 1);
             return 0;
         }
     }
 
     q->mSensors->push_back((ASensor *) sensor);
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 
     return 0;
 }
@@ -260,13 +256,13 @@ int ASensorEventQueue_disableSensor(ASensorEventQueue* queue, ASensor const* sen
     if (!queue) return -1;
     auto * q = (sensorEventQueue *) g_ASensorEventQueue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     auto position = std::find(q->mSensors->begin(), q->mSensors->end(), sensor);
     if (position != q->mSensors->end())
         q->mSensors->erase(position);
 
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 
     return 0;
 }
@@ -275,7 +271,7 @@ ssize_t ASensorEventQueue_getEvents(ASensorEventQueue* queue, ASensorEvent* even
     if (!queue || !events || count <= 0) return -1;
     auto * q = (sensorEventQueue *) g_ASensorEventQueue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     size_t copy = std::min(count, q->mPendingEvents->size());
     for (size_t i = 0; i < copy; ++i) {
@@ -294,7 +290,7 @@ ssize_t ASensorEventQueue_getEvents(ASensorEventQueue* queue, ASensorEvent* even
         } while (nRead == 8); // reduce eventfd semaphore to 0
     }
 
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 
     return copy;
 }
@@ -303,7 +299,7 @@ void ASensorEventQueue_enqueueEvent(ASensorEventQueue * queue, ASensorEvent * ev
     if (!queue) return;
     auto * q = (sensorEventQueue *) queue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
     q->mPendingEvents->push_back(*event);
     if (q->mPendingEvents->size() == 1) {
         uint64_t payload = 1;
@@ -312,14 +308,14 @@ void ASensorEventQueue_enqueueEvent(ASensorEventQueue * queue, ASensorEvent * ev
             ALOGW("Failed writing to dispatch fd: %s", strerror(errno));
         }
     }
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 }
 
 void ASensorEventQueue_getEnabledSensors(ASensorEventQueue * queue, ASensor * sensors[ASENSOR_COUNT_MAX]) {
     if (!queue) return;
     auto * q = (sensorEventQueue *) queue;
 
-    pthread_mutex_lock(&q->mLock);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
 
     int count = std::min((int)q->mSensors->size(), ASENSOR_COUNT_MAX);
     for (int i = 0; i < count; ++i) {
@@ -332,7 +328,7 @@ void ASensorEventQueue_getEnabledSensors(ASensorEventQueue * queue, ASensor * se
         }
     }
 
-    pthread_mutex_unlock(&q->mLock);
+    sceKernelUnlockLwMutex(&q->mLock, 1);
 }
 
 int ASensorEventQueue_setEventRate(ASensorEventQueue* queue, ASensor const* sensor, int32_t usec) {

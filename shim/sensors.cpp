@@ -1,7 +1,6 @@
 #include "shim/sensors.h"
 
 #include <psp2/motion.h>
-#include <pthread.h>
 #include <psp2/kernel/threadmgr.h>
 
 #include "FalsoNDK_Utils.h"
@@ -14,15 +13,11 @@ void sensors_init(ASensorEventQueue * queue) {
 
     sensorEventQueue = queue;
 
-    pthread_t t;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setstacksize(&attr, 32*1024);
-    pthread_create(&t, &attr, sensors_thread, nullptr);
-    pthread_detach(t);
+    SceUID t = sceKernelCreateThread("sensors_thread", sensors_thread, 64, 32*1024, 0, 0, nullptr);
+    sceKernelStartThread(t, 0, nullptr);
 }
 
-void * sensors_thread(void * arg) {
+int sensors_thread(SceSize args, void * argp) {
     while (true) {
         sensors_poll();
         sceKernelDelayThread(15000);

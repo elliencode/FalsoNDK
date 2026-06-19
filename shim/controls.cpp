@@ -10,7 +10,6 @@
 #include "shim/controls.h"
 
 #include <psp2/kernel/threadmgr.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <cstring>
 #include <psp2/kernel/clib.h>
@@ -53,15 +52,11 @@ void controls_init(AInputQueue * queue) {
 
     inputQueue = queue;
 
-    pthread_t t;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setstacksize(&attr, 32*1024);
-    pthread_create(&t, &attr, controls_poll, nullptr);
-    pthread_detach(t);
+    SceUID t = sceKernelCreateThread("controls_poll", controls_poll, 64, 32*1024, 0, 0, nullptr);
+    sceKernelStartThread(t, 0, nullptr);
 }
 
-void * controls_poll(void * arg) {
+int controls_poll(SceSize args, void * argp) {
     while (1) {
         pollPad();
         pollTouch();

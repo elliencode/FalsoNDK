@@ -29,7 +29,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include <falso_jni/jni.h>
+struct JavaVM;
+struct JNIEnv;
 
 #include "AAssetManager.h"
 #include "AInput.h"
@@ -95,7 +96,7 @@ typedef struct ANativeActivity {
      * We unfortunately cannot change this without breaking NDK
      * source-compatibility.
      */
-    jobject clazz;
+    void * clazz;
 
     /**
      * Path to this application's internal data directory.

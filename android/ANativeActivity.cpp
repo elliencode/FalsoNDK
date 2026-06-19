@@ -1,6 +1,7 @@
 #include "android/ANativeActivity.h"
 
 #include <cstdlib>
+#include <cerrno>
 
 void ANativeActivity_setWindowFlags(ANativeActivity* activity, uint32_t addFlags, uint32_t removeFlags) {
     // see Android's window.h for flags reference.
