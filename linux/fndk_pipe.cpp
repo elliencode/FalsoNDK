@@ -4,7 +4,8 @@
 #include "FalsoNDK_Utils.h"
 
 #define PIPEFD_MARGIN 384
-#define PIPEFD_MAX 64
+#define PIPEFD_MAX_COUNT 32
+#define PIPEFD_MAX_FD (PIPEFD_MAX_COUNT * 2)
 
 #define MSGPIPE_MEMTYPE_USER_MAIN 0x40
 #define MSGPIPE_THREAD_ATTR_PRIO (0x8 | 0x4)
@@ -21,7 +22,7 @@ typedef struct pipefd_internal {
     bool writeable{};
 } pipefd_internal;
 
-static pipefd_internal pipefd_pool[PIPEFD_MAX];
+static pipefd_internal pipefd_pool[PIPEFD_MAX_COUNT];
 static SceKernelLwMutexWork pipefd_pool_mutex{};
 
 __attribute__((constructor))
@@ -46,7 +47,7 @@ int fndk_pipe(int pipefd[2]) {
     }
 
     pipefd_internal * pipe = nullptr;
-    for (int i = 0, u = 0; u < PIPEFD_MAX; i++, u+=2) {
+    for (int i = 0, u = 0; u < PIPEFD_MAX_FD; i++, u+=2) {
         if (pipefd_pool[i].readfd == -1) {
             pipe = &pipefd_pool[i];
 
@@ -79,7 +80,7 @@ int fndk_pipe(int pipefd[2]) {
 }
 
 ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
-    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX_FD) {
         errno = EBADF;
         return -1;
     }
@@ -130,7 +131,7 @@ ssize_t fndk_pipe_read(int fd, void *buf, size_t count) {
 }
 
 ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
-    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX_FD) {
         errno = EBADF;
         return -1;
     }
@@ -175,7 +176,7 @@ ssize_t fndk_pipe_write(int fd, const void *buf, size_t count) {
 }
 
 void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable, bool consume) {
-    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX_FD) {
         *is_readable = false;
         *is_writeable = false;
         return;
@@ -203,7 +204,7 @@ void fndk_pipe_status(int fd, bool * is_readable, bool * is_writeable, bool cons
 }
 
 int fndk_pipe_close(int fd) {
-    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) {
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX_FD) {
         errno = EBADF;
         return -1;
     }
@@ -232,13 +233,13 @@ int fndk_pipe_close(int fd) {
 
 bool is_pipe(int fd) {
 #ifdef FNDK_SAFER_SLOWER
-    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX) return false;
+    if (fd < PIPEFD_MARGIN || fd >= PIPEFD_MARGIN + PIPEFD_MAX_FD) return false;
     int idx = (fd - PIPEFD_MARGIN) / 2;
     sceKernelLockLwMutex(&pipefd_pool_mutex, 1, NULL);
     bool result = pipefd_pool[idx].readfd == fd || pipefd_pool[idx].writefd == fd;
     sceKernelUnlockLwMutex(&pipefd_pool_mutex, 1);
     return result;
 #else
-    return (fd >= PIPEFD_MARGIN) && (fd < (PIPEFD_MARGIN + PIPEFD_MAX));
+    return (fd >= PIPEFD_MARGIN) && (fd < (PIPEFD_MARGIN + PIPEFD_MAX_FD));
 #endif
 }
