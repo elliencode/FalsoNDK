@@ -5,8 +5,8 @@
   <a href="#setup">Setup</a> •
   <a href="#usage">Usage</a> •
   <a href="#implemented-apis">Implemented APIs</a> •
-  <a href="#project-structure">Project Structure</a> •
   <a href="#flags">Flags</a> •
+  <a href="#logging">Logging</a> •
   <a href="#credits">Credits</a> •
   <a href="#license">License</a>
 </p>
@@ -199,6 +199,39 @@ Define these in your `CMakeLists.txt` as needed:
 | `DEBUG_EPOLL` | Verbose logging for all epoll operations                                                                                                          |
 | `DEBUG_EVENTFD` | Verbose logging for all eventfd operations                                                                                                        |
 | `DEBUG_PIPEFD` | Verbose logging for all pipe operations                                                                                                           |
+
+## Logging
+
+All internal FalsoNDK log output goes through a single function:
+
+```c
+void falsondk_log(int severity, const char * message);
+```
+
+This is a **weak symbol**. Define it in your port to redirect all FalsoNDK
+log output through any handler you like:
+
+```c
+#include <FalsoNDK/FalsoNDK_Utils.h>
+
+void falsondk_log(int severity, const char * message) {
+    if (severity >= FALSONDK_LOG_WARN) {
+        my_log_write("[FalsoNDK] %s\n", message);
+    }
+}
+```
+
+Severity levels, in increasing order:
+
+| Constant | Value | Used by |
+|---|---|---|
+| `FALSONDK_LOG_DEBUG` | 0 | `ALOGD` |
+| `FALSONDK_LOG_WARN`  | 1 | `ALOGW` |
+| `FALSONDK_LOG_ERROR` | 2 | `ALOGE` |
+| `FALSONDK_LOG_FATAL` | 3 | `LOG_ALWAYS_FATAL`, `LOG_ALWAYS_FATAL_IF` |
+
+> **Note:** Fatal messages always call `sceClibAbort()` after `falsondk_log`
+> returns, regardless of what your override does.
 
 ## Credits
 

@@ -10,71 +10,59 @@ uint64_t AFN_timeMillis() {
     return milliseconds;
 }
 
-void LOG_ALWAYS_FATAL_IF(bool cond, const char * fmt, ...) {
-    if (cond) {
-        static char text[2048];
-        static char fmt_2[2048];
-        sceClibSnprintf(fmt_2, 2047, "FATAL: %s\n", fmt);
-
-        va_list list;
-        va_start(list, fmt);
-        sceClibVsnprintf(text, 2048, fmt_2, list);
-        va_end(list);
-
-        sceClibPrintf(text);
-        sceClibAbort();
-    }
+__attribute__((weak))
+void falsondk_log(int severity, const char * message) {
+    static const char * const prefixes[] = { "D", "W", "E", "F" };
+    char buf[2080];
+    sceClibSnprintf(buf, sizeof(buf), "%s/FalsoNDK: %s\n", prefixes[severity], message);
+    sceClibPrintf(buf);
 }
 
-void LOG_ALWAYS_FATAL(const char * fmt, ...) {
-    static char text[2048];
-    static char fmt_2[2048];
-    sceClibSnprintf(fmt_2, 2047, "FATAL: %s\n", fmt);
-
+void LOG_ALWAYS_FATAL_IF(bool cond, const char * fmt, ...) {
+    if (!cond) return;
+    char text[2048];
     va_list list;
     va_start(list, fmt);
-    sceClibVsnprintf(text, 2048, fmt_2, list);
+    sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
+    falsondk_log(FALSONDK_LOG_FATAL, text);
+    sceClibAbort();
+}
 
-    sceClibPrintf(text);
+__attribute__((noreturn))
+void LOG_ALWAYS_FATAL(const char * fmt, ...) {
+    char text[2048];
+    va_list list;
+    va_start(list, fmt);
+    sceClibVsnprintf(text, sizeof(text), fmt, list);
+    va_end(list);
+    falsondk_log(FALSONDK_LOG_FATAL, text);
     sceClibAbort();
 }
 
 void ALOGE(const char * fmt, ...) {
-    static char text[2048];
-    static char fmt_2[2048];
-    sceClibSnprintf(fmt_2, 2047, "ALOGE: %s\n", fmt);
-
+    char text[2048];
     va_list list;
     va_start(list, fmt);
-    sceClibVsnprintf(text, 2048, fmt_2, list);
+    sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-
-    sceClibPrintf(text);
+    falsondk_log(FALSONDK_LOG_ERROR, text);
 }
 
 void ALOGW(const char * fmt, ...) {
-    static char text[2048];
-    static char fmt_2[2048];
-    sceClibSnprintf(fmt_2, 2047, "ALOGW: %s\n", fmt);
-
+    char text[2048];
     va_list list;
     va_start(list, fmt);
-    sceClibVsnprintf(text, 2048, fmt_2, list);
+    sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-
-    sceClibPrintf(text);
+    falsondk_log(FALSONDK_LOG_WARN, text);
 }
 
 void ALOGD(const char * fmt, ...) {
-    static char text[2048];
-    static char fmt_2[2048];
-    sceClibSnprintf(fmt_2, 2047, "ALOGD: %s\n", fmt);
-
+    char text[2048];
     va_list list;
     va_start(list, fmt);
-    sceClibVsnprintf(text, 2048, fmt_2, list);
+    sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-
-    sceClibPrintf(text);
+    falsondk_log(FALSONDK_LOG_DEBUG, text);
 }
