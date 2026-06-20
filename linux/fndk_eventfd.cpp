@@ -53,7 +53,6 @@ int fndk_eventfd(unsigned int initval, int flags) {
     return fd->fd;
 }
 
-//TODO: Call this from close()
 int fndk_eventfd_close(int fd) {
     int idx = fd - EVENTFD_MARGIN;
     if (idx < 0 || idx >= EVENTFD_MAX) {

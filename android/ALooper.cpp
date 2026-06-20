@@ -222,7 +222,7 @@ int removeSequenceNumberLocked(internal_ALooper * self, SequenceNumber seq) {
     // Always remove the FD from the request map even if an error occurs while
     // updating the epoll set so that we avoid accidentally leaking callbacks.
     self->mRequests->erase(request_it);
-    self->mSequenceNumberByFd->erase(self->mSequenceNumberByFd->find(fd));
+    self->mSequenceNumberByFd->erase(fd);
 
     int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_DEL, fd, nullptr);
     if (epollResult < 0) {
@@ -248,7 +248,7 @@ int removeSequenceNumberLocked(internal_ALooper * self, SequenceNumber seq) {
             // our list of callbacks got out of sync with the epoll set somehow.
             // We defensively rebuild the epoll set to avoid getting spurious
             // notifications with nowhere to go.
-            printf("Error removing epoll events for fd %d: %s\n", fd, strerror(errno));
+            ALOGE("Error removing epoll events for fd %d: %s\n", fd, strerror(errno));
             scheduleEpollRebuildLocked(self);
             return -1;
         }
@@ -280,7 +280,7 @@ void rebuildEpollLocked(internal_ALooper * self) {
 
         int epollResult = fndk_epoll_ctl(self->mEpollFd, FNDK_EPOLL_CTL_ADD, request.fd, &eventItem);
         if (epollResult < 0) {
-            printf("Error adding epoll events for fd %d while rebuilding epoll set: %s\n",
+            ALOGE("Error adding epoll events for fd %d while rebuilding epoll set: %s\n",
                   request.fd, strerror(errno));
         }
     }

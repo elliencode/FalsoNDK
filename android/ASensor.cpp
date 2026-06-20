@@ -26,7 +26,7 @@ typedef struct aSensor {
     float resolution = 0.001f;
     int minDelay = 1000; // useconds
     int fifoMaxEventCount = 100;
-    int fifoReservedEventCound = 1;
+    int fifoReservedEventCount = 1;
     int reportingMode = AREPORTING_MODE_CONTINUOUS;
     bool isWakeUpSensor = false;
 } aSensor;
@@ -375,7 +375,7 @@ int ASensor_getFifoMaxEventCount(ASensor const* sensor) {
 int ASensor_getFifoReservedEventCount(ASensor const* sensor) {
     if (!sensor) return 1;
     auto * s = (aSensor *) sensor;
-    return s->fifoReservedEventCound;
+    return s->fifoReservedEventCount;
 }
 
 const char* ASensor_getStringType(ASensor const* sensor) {
