@@ -40,6 +40,10 @@ typedef struct {
     int32_t android_button;
 } ButtonMapping;
 
+/* Override these symbols to use custom button bindings. */
+extern ButtonMapping fndk_button_mapping[];
+extern int fndk_button_mapping_count;
+
 void controls_init(AInputQueue * queue);
 int controls_poll(SceSize args, void * argp);
 void pollTouch();

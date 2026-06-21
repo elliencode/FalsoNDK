@@ -28,7 +28,7 @@ extern "C" {
 uint64_t AFN_timeMillis();
 
 /* Override this symbol to redirect all FalsoNDK log output. */
-void falsondk_log(int severity, const char * message);
+void fndk_log(int severity, const char * message);
 
 void LOG_ALWAYS_FATAL_IF(bool cond, const char * fmt, ...);
 [[noreturn]] void LOG_ALWAYS_FATAL(const char * fmt, ...);

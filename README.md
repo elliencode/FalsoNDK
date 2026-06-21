@@ -6,7 +6,6 @@
   <a href="#usage">Usage</a> •
   <a href="#implemented-apis">Implemented APIs</a> •
   <a href="#flags">Flags</a> •
-  <a href="#logging">Logging</a> •
   <a href="#credits">Credits</a> •
   <a href="#license">License</a>
 </p>
@@ -100,8 +99,39 @@ so_default_dynlib default_dynlib[] = {
 ```
 
 Pay attention to the last four lines! `read`, `write`, and `pipe` linked
-to FalsoNDK's implementation are crucial for the library to work. `close` is optional.
+to FalsoNDK's implementation are necessary for the library to work. `close` is optional.
 Omitting it will cause pipe and eventfd objects to leak, but empirically native games only ever create one of each.
+
+The library also defines several weak symbols that let you customize behavior.
+First of all, you can change the controls mapping and analog stick deadzones, like so:
+
+```c
+#include <FalsoNDK/shim/controls.h>
+
+ButtonMapping fndk_button_mapping[] = {
+    { SCE_CTRL_CROSS,    AKEYCODE_BUTTON_B },   // swap A/B for this game
+    { SCE_CTRL_CIRCLE,   AKEYCODE_BUTTON_A },
+    { SCE_CTRL_START,    AKEYCODE_BUTTON_START },
+    { SCE_CTRL_SELECT,   AKEYCODE_BUTTON_SELECT },
+    // Only 4 buttons used.
+};
+int fndk_button_mapping_count = 4;
+
+float L_INNER_DEADZONE = 0.15f;
+float R_INNER_DEADZONE = 0.15f;
+```
+
+You can also override the default logging function:
+
+```c
+#include <FalsoNDK/FalsoNDK_Utils.h>
+
+void fndk_log(int severity, const char * message) {
+    if (severity >= FALSONDK_LOG_WARN) {
+        my_log_write("[FalsoNDK] %s\n", message);
+    }
+}
+```
 
 ## Usage
 
@@ -199,39 +229,6 @@ Define these in your `CMakeLists.txt` as needed:
 | `DEBUG_EPOLL` | Verbose logging for all epoll operations                                                                                                          |
 | `DEBUG_EVENTFD` | Verbose logging for all eventfd operations                                                                                                        |
 | `DEBUG_PIPEFD` | Verbose logging for all pipe operations                                                                                                           |
-
-## Logging
-
-All internal FalsoNDK log output goes through a single function:
-
-```c
-void falsondk_log(int severity, const char * message);
-```
-
-This is a **weak symbol**. Define it in your port to redirect all FalsoNDK
-log output through any handler you like:
-
-```c
-#include <FalsoNDK/FalsoNDK_Utils.h>
-
-void falsondk_log(int severity, const char * message) {
-    if (severity >= FALSONDK_LOG_WARN) {
-        my_log_write("[FalsoNDK] %s\n", message);
-    }
-}
-```
-
-Severity levels, in increasing order:
-
-| Constant | Value | Used by |
-|---|---|---|
-| `FALSONDK_LOG_DEBUG` | 0 | `ALOGD` |
-| `FALSONDK_LOG_WARN`  | 1 | `ALOGW` |
-| `FALSONDK_LOG_ERROR` | 2 | `ALOGE` |
-| `FALSONDK_LOG_FATAL` | 3 | `LOG_ALWAYS_FATAL`, `LOG_ALWAYS_FATAL_IF` |
-
-> **Note:** Fatal messages always call `sceClibAbort()` after `falsondk_log`
-> returns, regardless of what your override does.
 
 ## Credits
 

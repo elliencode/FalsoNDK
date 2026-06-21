@@ -219,22 +219,25 @@ void pollTouch() {
     }
 }
 
-static ButtonMapping mapping[] = {
-        { SCE_CTRL_UP,        AKEYCODE_DPAD_UP },
-        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_DOWN },
-        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_LEFT },
-        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_RIGHT },
-        { SCE_CTRL_CROSS,     AKEYCODE_BUTTON_A },
-        { SCE_CTRL_CIRCLE,    AKEYCODE_BUTTON_B },
-        { SCE_CTRL_SQUARE,    AKEYCODE_BUTTON_X },
-        { SCE_CTRL_TRIANGLE,  AKEYCODE_BUTTON_Y },
-        { SCE_CTRL_L1,        AKEYCODE_BUTTON_L1 },
-        { SCE_CTRL_R1,        AKEYCODE_BUTTON_R1 },
-        { SCE_CTRL_L2,        AKEYCODE_BUTTON_L2 },
-        { SCE_CTRL_R2,        AKEYCODE_BUTTON_R2 },
-        { SCE_CTRL_START,     AKEYCODE_BUTTON_START },
-        { SCE_CTRL_SELECT,    AKEYCODE_BUTTON_SELECT },
-};
+extern "C" {
+    ButtonMapping fndk_button_mapping[] __attribute__((weak)) = {
+            { SCE_CTRL_UP,        AKEYCODE_DPAD_UP },
+            { SCE_CTRL_DOWN,      AKEYCODE_DPAD_DOWN },
+            { SCE_CTRL_LEFT,      AKEYCODE_DPAD_LEFT },
+            { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_RIGHT },
+            { SCE_CTRL_CROSS,     AKEYCODE_BUTTON_A },
+            { SCE_CTRL_CIRCLE,    AKEYCODE_BUTTON_B },
+            { SCE_CTRL_SQUARE,    AKEYCODE_BUTTON_X },
+            { SCE_CTRL_TRIANGLE,  AKEYCODE_BUTTON_Y },
+            { SCE_CTRL_L1,        AKEYCODE_BUTTON_L1 },
+            { SCE_CTRL_R1,        AKEYCODE_BUTTON_R1 },
+            { SCE_CTRL_L2,        AKEYCODE_BUTTON_L2 },
+            { SCE_CTRL_R2,        AKEYCODE_BUTTON_R2 },
+            { SCE_CTRL_START,     AKEYCODE_BUTTON_START },
+            { SCE_CTRL_SELECT,    AKEYCODE_BUTTON_SELECT },
+    };
+    int fndk_button_mapping_count __attribute__((weak)) = 14;
+}
 
 uint32_t old_buttons = 0, current_buttons = 0, pressed_buttons = 0, released_buttons = 0;
 float lx = 0, ly = 0, rx = 0, ry = 0, lastLx = 0, lastLy = 0, lastRx = 0, lastRy = 0;
@@ -299,20 +302,21 @@ void pollPad() {
     pressed_buttons = current_buttons & ~old_buttons;
     released_buttons = ~current_buttons & old_buttons;
 
-    for (auto & i : mapping) {
-        if (pressed_buttons & i.sce_button) {
+    for (int i = 0; i < fndk_button_mapping_count; i++) {
+        ButtonMapping & m = fndk_button_mapping[i];
+        if (pressed_buttons & m.sce_button) {
             inputEvent e;
             e.source = AINPUT_SOURCE_KEYBOARD; // Warning: some games may want distinction between AINPUT_SOURCE_KEYBOARD and AINPUT_SOURCE_DPAD
-            e.keycode = i.android_button;
+            e.keycode = m.android_button;
             e.action = AKEY_EVENT_ACTION_DOWN;
             e.type = AINPUT_EVENT_TYPE_KEY;
 
             AInputEvent* aie = AInputEvent_create(&e);
             AInputQueue_enqueueEvent(inputQueue, aie);
-        } else if (released_buttons & i.sce_button) {
+        } else if (released_buttons & m.sce_button) {
             inputEvent e;
             e.source = AINPUT_SOURCE_KEYBOARD; // Warning: some games may want distinction between AINPUT_SOURCE_KEYBOARD and AINPUT_SOURCE_DPAD
-            e.keycode = i.android_button;
+            e.keycode = m.android_button;
             e.action = AKEY_EVENT_ACTION_UP;
             e.type = AINPUT_EVENT_TYPE_KEY;
 

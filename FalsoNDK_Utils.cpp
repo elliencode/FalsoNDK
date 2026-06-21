@@ -11,7 +11,7 @@ uint64_t AFN_timeMillis() {
 }
 
 __attribute__((weak))
-void falsondk_log(int severity, const char * message) {
+void fndk_log(int severity, const char * message) {
     static const char * const prefixes[] = { "D", "W", "E", "F" };
     char buf[2080];
     sceClibSnprintf(buf, sizeof(buf), "%s/FalsoNDK: %s\n", prefixes[severity], message);
@@ -25,7 +25,7 @@ void LOG_ALWAYS_FATAL_IF(bool cond, const char * fmt, ...) {
     va_start(list, fmt);
     sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-    falsondk_log(FALSONDK_LOG_FATAL, text);
+    fndk_log(FALSONDK_LOG_FATAL, text);
     sceClibAbort();
 }
 
@@ -36,7 +36,7 @@ void LOG_ALWAYS_FATAL(const char * fmt, ...) {
     va_start(list, fmt);
     sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-    falsondk_log(FALSONDK_LOG_FATAL, text);
+    fndk_log(FALSONDK_LOG_FATAL, text);
     sceClibAbort();
 }
 
@@ -46,7 +46,7 @@ void ALOGE(const char * fmt, ...) {
     va_start(list, fmt);
     sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-    falsondk_log(FALSONDK_LOG_ERROR, text);
+    fndk_log(FALSONDK_LOG_ERROR, text);
 }
 
 void ALOGW(const char * fmt, ...) {
@@ -55,7 +55,7 @@ void ALOGW(const char * fmt, ...) {
     va_start(list, fmt);
     sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-    falsondk_log(FALSONDK_LOG_WARN, text);
+    fndk_log(FALSONDK_LOG_WARN, text);
 }
 
 void ALOGD(const char * fmt, ...) {
@@ -64,5 +64,5 @@ void ALOGD(const char * fmt, ...) {
     va_start(list, fmt);
     sceClibVsnprintf(text, sizeof(text), fmt, list);
     va_end(list);
-    falsondk_log(FALSONDK_LOG_DEBUG, text);
+    fndk_log(FALSONDK_LOG_DEBUG, text);
 }
