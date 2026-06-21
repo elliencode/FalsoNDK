@@ -4,7 +4,6 @@
   <a href="#how-it-works">How it works</a> •
   <a href="#setup">Setup</a> •
   <a href="#usage">Usage</a> •
-  <a href="#implemented-apis">Implemented APIs</a> •
   <a href="#flags">Flags</a> •
   <a href="#credits">Credits</a> •
   <a href="#license">License</a>
@@ -14,7 +13,7 @@ FalsoNDK (*falso* as in *fake* from Italian) is a library that implements a
 subset of the Android NDK sufficient to run `ANativeActivity`-based Android
 games on the PSVita via [SoLoBoP](https://github.com/v-atamanenko/soloader-boilerplate).
 
-It is a sister project to [FalsoJNI](https://github.com/v-atamanenko/falso_jni),
+It is a sister project to [FalsoJNI](https://github.com/v-atamanenko/FalsoJNI),
 which handles the Java/JNI side of things. FalsoNDK handles the native side:
 the activity lifecycle, input, sensors, event loop, and the Linux FD
 primitives that VitaSDK does not provide.
@@ -186,38 +185,6 @@ void main() {
 FalsoNDK automatically starts the controls and sensors polling threads when
 `AInputQueue_create()` and the sensor queue are initialized; you don't need
 to manage those manually.
-
-## Implemented APIs
-
-### Android NDK (`android/`)
-
-| Header | What's implemented |
-|---|---|
-| `ANativeActivity.h` | Full activity struct, lifecycle callbacks, `ANativeActivity_onCreate` |
-| `ANativeWindow.h` | `ANativeWindow_create`, format/size queries |
-| `AInput.h` | `AInputQueue`, `AInputEvent`, key/motion event accessors, `AKEYCODE_*` constants |
-| `ALooper.h` | `ALooper_prepare`, `ALooper_forThread`, `ALooper_pollOnce`, `ALooper_pollAll`, `ALooper_addFd`, `ALooper_removeFd` |
-| `ASensor.h` | `ASensorManager`, `ASensorEventQueue`, accelerometer and gyroscope events |
-| `AAssetManager.h` | `AAssetManager_open`, `AAsset_read`, `AAsset_seek`, `AAsset_close` |
-| `AConfiguration.h` | Stub configuration object |
-| `native_app_glue.h` | `android_app` struct and glue declarations |
-
-### Linux FD primitives (`linux/`)
-
-VitaSDK does not ship `eventfd`, `epoll`, or `pipe`. FalsoNDK provides them,
-plus a layer for `read`, `write`, and `close` that routes calls to
-the right backend automatically.
-
-These are not drop-in replacements for a general-purpose libc. Pool sizes are
-fixed, and the blocking primitives spin-poll rather than sleeping on a
-condition. They are correct enough for game use.
-
-### Vita hardware shim (`shim/`)
-
-| File | What it does |
-|---|---|
-| `controls.cpp` | Polls PSVita buttons, touch panels, and analog sticks; translates to `AKeyEvent` / `AMotionEvent` and pushes them into the `AInputQueue` |
-| `sensors.cpp` | Reads PSVita accelerometer and gyroscope via `SceMotion`; translates to `ASensorEvent` gravity/acceleration values |
 
 ## Flags
 
