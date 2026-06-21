@@ -18,6 +18,10 @@
 
 #include "android/AInput.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GRAVITY_CONSTANT 9.807f
 
 #define kIdRawPointerCancel 0xe
@@ -50,5 +54,9 @@ void pollTouch();
 void pollPad();
 void pollAccel();
 void runSilentStartHelper();
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif // FALSONDK_CONTROLS_H
