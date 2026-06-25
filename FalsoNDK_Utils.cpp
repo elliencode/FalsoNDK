@@ -13,56 +13,37 @@ uint64_t AFN_timeMillis() {
 __attribute__((weak))
 void fndk_log(int severity, const char * message) {
     static const char * const prefixes[] = { "D", "W", "E", "F" };
-    char buf[2080];
-    sceClibSnprintf(buf, sizeof(buf), "%s/FalsoNDK: %s\n", prefixes[severity], message);
-    sceClibPrintf(buf);
+    sceClibPrintf("%s/FalsoNDK: %s\n", prefixes[severity], message);
 }
+
+#define LOG_PRINT(severity, fmt) \
+    char log_buffer[2048]; \
+    va_list list; \
+    va_start(list, fmt); \
+    sceClibVsnprintf(log_buffer, sizeof(log_buffer), fmt, list); \
+    va_end(list); \
+    fndk_log(severity, log_buffer);
 
 void LOG_ALWAYS_FATAL_IF(bool cond, const char * fmt, ...) {
     if (!cond) return;
-    char text[2048];
-    va_list list;
-    va_start(list, fmt);
-    sceClibVsnprintf(text, sizeof(text), fmt, list);
-    va_end(list);
-    fndk_log(FALSONDK_LOG_FATAL, text);
+    LOG_PRINT(FALSONDK_LOG_FATAL, fmt);
     sceClibAbort();
 }
 
 __attribute__((noreturn))
 void LOG_ALWAYS_FATAL(const char * fmt, ...) {
-    char text[2048];
-    va_list list;
-    va_start(list, fmt);
-    sceClibVsnprintf(text, sizeof(text), fmt, list);
-    va_end(list);
-    fndk_log(FALSONDK_LOG_FATAL, text);
+    LOG_PRINT(FALSONDK_LOG_FATAL, fmt);
     sceClibAbort();
 }
 
 void ALOGE(const char * fmt, ...) {
-    char text[2048];
-    va_list list;
-    va_start(list, fmt);
-    sceClibVsnprintf(text, sizeof(text), fmt, list);
-    va_end(list);
-    fndk_log(FALSONDK_LOG_ERROR, text);
+    LOG_PRINT(FALSONDK_LOG_ERROR, fmt);
 }
 
 void ALOGW(const char * fmt, ...) {
-    char text[2048];
-    va_list list;
-    va_start(list, fmt);
-    sceClibVsnprintf(text, sizeof(text), fmt, list);
-    va_end(list);
-    fndk_log(FALSONDK_LOG_WARN, text);
+    LOG_PRINT(FALSONDK_LOG_WARN, fmt);
 }
 
 void ALOGD(const char * fmt, ...) {
-    char text[2048];
-    va_list list;
-    va_start(list, fmt);
-    sceClibVsnprintf(text, sizeof(text), fmt, list);
-    va_end(list);
-    fndk_log(FALSONDK_LOG_DEBUG, text);
+    LOG_PRINT(FALSONDK_LOG_DEBUG, fmt);
 }

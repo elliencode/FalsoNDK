@@ -211,7 +211,7 @@ ASensorEventQueue* ASensorManager_createEventQueue(ASensorManager* manager,
         sceKernelCreateLwMutex(&seq->mLock, "sensor_queue_lock", 0, 0, nullptr);
         g_ASensorEventQueue = (ASensorEventQueue *) seq;
 
-        sensors_init(g_ASensorEventQueue);
+        fndk_sensors_init(g_ASensorEventQueue);
     }
 
     auto * q = (sensorEventQueue *) g_ASensorEventQueue;

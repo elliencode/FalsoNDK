@@ -61,6 +61,8 @@ target_link_libraries(${VITA_APP_NAME} FalsoNDK)
 And adjust your dynlib to include FalsoNDK's implementations:
 
 ```c
+#include <FalsoNDK/FalsoNDK.h>
+
 so_default_dynlib default_dynlib[] = {
   { "AConfiguration_delete", (uintptr_t)&AConfiguration_delete },
   { "AConfiguration_fromAssetManager", (uintptr_t)&AConfiguration_fromAssetManager },
@@ -105,7 +107,7 @@ The library also defines several weak symbols that let you customize behavior.
 First of all, you can change the controls mapping and analog stick deadzones, like so:
 
 ```c
-#include <FalsoNDK/shim/controls.h>
+#include <FalsoNDK/FalsoNDK.h>
 
 ButtonMapping fndk_button_mapping[] = {
     { SCE_CTRL_CROSS,    AKEYCODE_BUTTON_B },   // swap A/B for this game
@@ -123,7 +125,7 @@ float R_INNER_DEADZONE = 0.15f;
 You can also override the default logging function:
 
 ```c
-#include <FalsoNDK/FalsoNDK_Utils.h>
+#include <FalsoNDK/FalsoNDK.h>
 
 void fndk_log(int severity, const char * message) {
     if (severity >= FALSONDK_LOG_WARN) {

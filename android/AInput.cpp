@@ -35,7 +35,7 @@ AInputQueue * AInputQueue_create() {
     sceKernelCreateLwMutex(&iq->mLock, "input_queue_lock", 0, 0, nullptr);
     g_AInputQueue = reinterpret_cast<AInputQueue *>(iq);
 
-    controls_init(g_AInputQueue);
+    fndk_controls_init(g_AInputQueue);
 
     return g_AInputQueue;
 }

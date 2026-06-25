@@ -7,8 +7,7 @@
  * of the MIT license. See the LICENSE file for details.
  */
 
-#ifndef FALSONDK_CONTROLS_H
-#define FALSONDK_CONTROLS_H
+#pragma once
 
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/touch.h>
@@ -22,23 +21,6 @@
 extern "C" {
 #endif
 
-#define GRAVITY_CONSTANT 9.807f
-
-#define kIdRawPointerCancel 0xe
-#define kIdRawPointerDown 0x6000e
-#define kIdRawPointerMove 0x4000e
-#define kIdRawPointerUp 0x8000e
-#define kIdUndefined 0
-
-#define kModuleTypeIdTouchScreen 1000
-#define kModuleTypeIdTouchPad 1100
-
-enum {
-    ACTION_DOWN = 1,
-    ACTION_UP   = 2,
-    ACTION_MOVE = 3,
-};
-
 typedef struct {
     uint32_t sce_button;
     int32_t android_button;
@@ -48,15 +30,9 @@ typedef struct {
 extern ButtonMapping fndk_button_mapping[];
 extern int fndk_button_mapping_count;
 
-void controls_init(AInputQueue * queue);
-int controls_poll(SceSize args, void * argp);
-void pollTouch();
-void pollPad();
-void pollAccel();
-void runSilentStartHelper();
+void fndk_controls_init(AInputQueue * queue);
+int fndk_controls_poll(SceSize args, void * argp);
 
 #ifdef __cplusplus
 };
 #endif
-
-#endif // FALSONDK_CONTROLS_H

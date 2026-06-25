@@ -30,6 +30,9 @@ extern "C" {
 AInputQueue * inputQueue;
 SceTouchPanelInfo panelInfoBack;
 
+void pollTouch();
+void pollPad();
+
 float lerp(float x1, float y1, float x3, float y3, float x2) {
     return ((x2-x1)*(y3-y1) / (x3-x1)) + y1;
 }
@@ -42,7 +45,7 @@ float coord_normalize(float val, float deadzone_min, float deadzone_max) {
     return lerp(0.f, deadzone_min * sign, 1.0f*sign, deadzone_max*sign, val);
 }
 
-void controls_init(AInputQueue * queue) {
+void fndk_controls_init(AInputQueue * queue) {
     // Enable analog sticks and touchscreen
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
@@ -52,11 +55,11 @@ void controls_init(AInputQueue * queue) {
 
     inputQueue = queue;
 
-    SceUID t = sceKernelCreateThread("controls_poll", controls_poll, 64, 32*1024, 0, 0, nullptr);
+    SceUID t = sceKernelCreateThread("fndk_controls_poll", fndk_controls_poll, 64, 32*1024, 0, 0, nullptr);
     sceKernelStartThread(t, 0, nullptr);
 }
 
-int controls_poll(SceSize args, void * argp) {
+int fndk_controls_poll(SceSize args, void * argp) {
     while (1) {
         pollPad();
         pollTouch();
