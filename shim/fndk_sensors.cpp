@@ -1,4 +1,4 @@
-#include "shim/sensors.h"
+#include "shim/fndk_sensors.h"
 
 #include <psp2/motion.h>
 #include <psp2/kernel/threadmgr.h>

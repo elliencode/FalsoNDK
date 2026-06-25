@@ -8,7 +8,7 @@
 #include <algorithm>
 
 #include "FalsoNDK_Utils.h"
-#include "shim/sensors.h"
+#include "shim/fndk_sensors.h"
 #include "linux/fndk_epoll.h"
 #include "linux/fndk_eventfd.h"
 #include "linux/fndk_unistd.h"

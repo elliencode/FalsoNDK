@@ -7,7 +7,7 @@
  * of the MIT license. See the LICENSE file for details.
  */
 
-#include "shim/controls.h"
+#include "shim/fndk_controls.h"
 
 #include <psp2/kernel/threadmgr.h>
 #include <stdio.h>

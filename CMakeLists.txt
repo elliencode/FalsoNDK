@@ -28,8 +28,8 @@ add_library(FalsoNDK STATIC
     linux/fndk_eventfd.cpp
     linux/fndk_pipe.cpp
     linux/fndk_unistd.cpp
-    shim/controls.cpp
-    shim/sensors.cpp
+    shim/fndk_controls.cpp
+    shim/fndk_sensors.cpp
 )
 
 target_include_directories(FalsoNDK PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

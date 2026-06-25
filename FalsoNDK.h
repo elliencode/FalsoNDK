@@ -12,4 +12,4 @@
 #include "android/native_app_glue.h"
 
 #include "linux/fndk_unistd.h"
-#include "shim/controls.h"
+#include "shim/fndk_controls.h"

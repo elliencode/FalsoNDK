@@ -9,7 +9,7 @@
 #include "linux/fndk_epoll.h"
 #include "linux/fndk_eventfd.h"
 #include "linux/fndk_unistd.h"
-#include "shim/controls.h"
+#include "shim/fndk_controls.h"
 
 static AInputQueue * g_AInputQueue = nullptr;
 
