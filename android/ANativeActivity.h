@@ -77,14 +77,14 @@ typedef struct ANativeActivity {
     /**
      * The global handle on the process's Java VM.
      */
-    JavaVM* vm;
+    void* vm;
 
     /**
      * JNI context for the main thread of the app.  Note that this field
      * can ONLY be used from the main thread of the process; that is, the
      * thread that calls into the ANativeActivityCallbacks.
      */
-    JNIEnv* env;
+    void* env;
 
     /**
      * The NativeActivity object handle.

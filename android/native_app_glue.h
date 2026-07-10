@@ -174,8 +174,8 @@ struct android_app {
     // These are the JNI environment handles for the thread in which
     // android_main runs.  Do NOT use the ones in NativeActivity, as
     // those are for the NativeActivity callback threads
-    JNIEnv* appThreadEnv;
-    jobject appThreadThis;
+    void* appThreadEnv;
+    void* appThreadThis;
 
     // -------------------------------------------------
     // Below are "private" implementation of the glue code.
@@ -208,8 +208,8 @@ struct android_app {
     ANativeWindow* pendingWindow;
     ARect pendingContentRect;
 
-    jobject appThreadDisp;
-    jmethodID appThreadDispGetRotation;
+    void* appThreadDisp;
+    void* appThreadDispGetRotation;
 };
 
 enum {

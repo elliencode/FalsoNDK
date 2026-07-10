@@ -55,13 +55,18 @@ Then in your `CMakeLists.txt`, add the subdirectory and link against it:
 
 ```cmake
 add_subdirectory(lib/falso_ndk)
-target_link_libraries(${VITA_APP_NAME} FalsoNDK)
+add_dependencies(${CMAKE_PROJECT_NAME} FalsoNDK)
+
+target_link_libraries(${CMAKE_PROJECT_NAME}
+                      FalsoNDK
+                      <...>
+                      )
 ```
 
 And adjust your dynlib to include FalsoNDK's implementations:
 
 ```c
-#include <FalsoNDK/FalsoNDK.h>
+#include <falso_ndk/FalsoNDK.h>
 
 so_default_dynlib default_dynlib[] = {
   { "AConfiguration_delete", (uintptr_t)&AConfiguration_delete },
@@ -107,7 +112,7 @@ The library also defines several weak symbols that let you customize behavior.
 First of all, you can change the controls mapping and analog stick deadzones, like so:
 
 ```c
-#include <FalsoNDK/FalsoNDK.h>
+#include <falso_ndk/FalsoNDK.h>
 
 ButtonMapping fndk_button_mapping[] = {
     { SCE_CTRL_CROSS,    AKEYCODE_BUTTON_B },   // swap A/B for this game
@@ -125,7 +130,7 @@ float R_INNER_DEADZONE = 0.15f;
 You can also override the default logging function:
 
 ```c
-#include <FalsoNDK/FalsoNDK.h>
+#include <falso_ndk/FalsoNDK.h>
 
 void fndk_log(int severity, const char * message) {
     if (severity >= FALSONDK_LOG_WARN) {
@@ -140,8 +145,8 @@ Below is a typical `main()` for an `ANativeActivity`-based game port. It
 follows the same pattern as the boilerplate's `main.c`:
 
 ```c
-#include <FalsoJNI/FalsoJNI.h>
-#include <FalsoNDK/FalsoNDK.h>
+#include <falso_jni/FalsoJNI.h>
+#include <falso_ndk/FalsoNDK.h>
 
 void main() {
     soloader_init_all();

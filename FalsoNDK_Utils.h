@@ -1,7 +1,8 @@
 #ifndef FALSONDK_UTILS_H
 #define FALSONDK_UTILS_H
 
-#include <cstdint>
+#include <stdint.h>
+#include <stdbool.h>
 
 /* Used to retry syscalls that can return EINTR. */
 #define TEMP_FAILURE_RETRY(exp) ({         \

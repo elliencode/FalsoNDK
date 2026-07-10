@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 #ifdef USE_SCELIBC_IO
-#include <libc_bridge/libc_bridge.h>
+#include <shim/libc_bridge.h>
 #endif
 
 #include "FalsoNDK_Utils.h"

@@ -12,4 +12,5 @@
 #include "android/native_app_glue.h"
 
 #include "linux/fndk_unistd.h"
+#include "linux/fndk_pipe.h"
 #include "shim/fndk_controls.h"
