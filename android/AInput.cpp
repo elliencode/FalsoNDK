@@ -95,8 +95,11 @@ int32_t AInputQueue_hasEvents(AInputQueue* queue) {
         return -1;
     }
 
-    const auto * q = reinterpret_cast<inputQueue *>(queue);
-    return q->mPendingEvents.empty() ? 0 : 1;
+    auto * q = reinterpret_cast<inputQueue *>(queue);
+    sceKernelLockLwMutex(&q->mLock, 1, nullptr);
+    int32_t result = q->mPendingEvents.empty() ? 0 : 1;
+    sceKernelUnlockLwMutex(&q->mLock, 1);
+    return result;
 }
 
 int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
