@@ -12,6 +12,20 @@
 #include "linux/fndk_unistd.h"
 #include "shim/fndk_controls.h"
 
+#define EVENT_POOL_SIZE 64
+static inputEvent _event_pool_storage[EVENT_POOL_SIZE];
+static inputEvent* _event_pool_free[EVENT_POOL_SIZE];
+static int _event_pool_top = 0;
+static SceKernelLwMutexWork _event_pool_lock;
+
+__attribute__((constructor))
+static void _event_pool_init() {
+    sceKernelCreateLwMutex(&_event_pool_lock, "event_pool_lock", 0, 0, nullptr);
+    for (int i = 0; i < EVENT_POOL_SIZE; ++i)
+        _event_pool_free[i] = &_event_pool_storage[i];
+    _event_pool_top = EVENT_POOL_SIZE;
+}
+
 static AInputQueue * g_AInputQueue = nullptr;
 
 typedef struct inputQueue {
@@ -127,7 +141,15 @@ int32_t AInputQueue_preDispatchEvent(AInputQueue* queue, AInputEvent* event) {
 }
 
 void AInputQueue_finishEvent(AInputQueue* queue, AInputEvent* event, int handled) {
-    if (event) free(event);
+    if (!event) return;
+    auto* e = reinterpret_cast<inputEvent*>(event);
+    if (e >= _event_pool_storage && e < _event_pool_storage + EVENT_POOL_SIZE) {
+        sceKernelLockLwMutex(&_event_pool_lock, 1, nullptr);
+        _event_pool_free[_event_pool_top++] = e;
+        sceKernelUnlockLwMutex(&_event_pool_lock, 1);
+    } else {
+        free(event);
+    }
 }
 
 void AInputQueue_enqueueEvent(AInputQueue* queue, AInputEvent* event) {
@@ -151,9 +173,17 @@ void AInputQueue_enqueueEvent(AInputQueue* queue, AInputEvent* event) {
  */
 
 AInputEvent *AInputEvent_create(const inputEvent *e) {
-    auto * ret = reinterpret_cast<AInputEvent *>(malloc(sizeof(inputEvent)));
+    sceKernelLockLwMutex(&_event_pool_lock, 1, nullptr);
+    inputEvent* ret;
+    if (_event_pool_top > 0) {
+        ret = _event_pool_free[--_event_pool_top];
+        sceKernelUnlockLwMutex(&_event_pool_lock, 1);
+    } else {
+        sceKernelUnlockLwMutex(&_event_pool_lock, 1);
+        ret = static_cast<inputEvent*>(malloc(sizeof(inputEvent)));
+    }
     memcpy(ret, e, sizeof(inputEvent));
-    return ret;
+    return reinterpret_cast<AInputEvent*>(ret);
 }
 
 int32_t AInputEvent_getType(const AInputEvent* event) {
