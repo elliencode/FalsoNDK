@@ -1,5 +1,6 @@
 #include "android/AInput.h"
 
+#include <deque>
 #include <vector>
 #include <psp2/kernel/threadmgr.h>
 #include <cstring>
@@ -17,7 +18,7 @@ typedef struct inputQueue {
     int mDispatchFd;
     std::vector<ALooper*> mAppLoopers;
     SceKernelLwMutexWork mLock;
-    std::vector<AInputEvent*> mPendingEvents;
+    std::deque<AInputEvent*> mPendingEvents;
 } inputQueue;
 
 AInputQueue * AInputQueue_create() {
@@ -100,8 +101,8 @@ int32_t AInputQueue_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
     sceKernelLockLwMutex(&q->mLock, 1, nullptr);
     *outEvent = NULL;
     if (!q->mPendingEvents.empty()) {
-        *outEvent = q->mPendingEvents[0];
-        q->mPendingEvents.erase(q->mPendingEvents.begin());
+        *outEvent = q->mPendingEvents.front();
+        q->mPendingEvents.pop_front();
     }
 
     if (q->mPendingEvents.empty()) {
